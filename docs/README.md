@@ -37,6 +37,7 @@
 | [01-development-standards.md](./engineering/01-development-standards.md) | approved | 开发流程与工程规范（分支/提交/评审/测试/CI-CD/发布/SRE/安全） |
 | [02-load-testing-plan.md](./engineering/02-load-testing-plan.md) | draft | 压测方案（指标/工具/场景/容量模型/验收） |
 | [03-code-review-r1.md](./engineering/03-code-review-r1.md) | approved | 首轮代码审查记录（18 项处置 + 复查清单） |
+| [04-code-review-r2.md](./engineering/04-code-review-r2.md) | approved | Round 2 审查记录（ReAct 交付：F1-F4 处置 + 复查清单） |
 
 ### learning/ 学习与面试
 | 文档 | 状态 | 说明 |
