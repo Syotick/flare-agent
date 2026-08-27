@@ -1,10 +1,11 @@
 import { useState } from "react";
 import {
-  MessageSquare, Plus, Search, Sparkles, Trash2, Wrench, X,
+  Brain, Database, MessageSquare, Plus, Search, Sparkles, Trash2, X,
 } from "lucide-react";
 import { cn, groupByDate, autoTitle } from "../lib/utils";
 import type { TaskDetail } from "../api";
 import FlareLogo from "./FlareLogo";
+import type { ViewId } from "../App";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,8 +18,10 @@ export default function Sidebar(props: {
   onNew: () => void;
   onDelete: (taskId: string) => void;
   running: boolean;
+  view: ViewId;
+  onNavigate: (view: ViewId) => void;
 }) {
-  const { tasks, activeTaskId, onPick, onNew, onDelete, running } = props;
+  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate } = props;
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
 
@@ -116,19 +119,48 @@ export default function Sidebar(props: {
       <div className="flex flex-none flex-col gap-1.5">
         <div className="flex flex-col gap-0.5">
           <span className="px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">工作区</span>
-          <div className="flex cursor-pointer items-center gap-2.5 rounded-lg bg-gradient-flare-soft px-2.5 py-1.5 text-[13px] text-foreground">
-            <MessageSquare className="h-3.5 w-3.5 text-primary" />
-            <span className="font-medium">对话</span>
+          <div
+            className={
+              "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors " +
+              (view === "chat"
+                ? "bg-gradient-flare-soft text-foreground"
+                : "text-muted-foreground/60 hover:bg-muted hover:text-foreground")
+            }
+            onClick={() => onNavigate("chat")}
+          >
+            <MessageSquare className={"h-3.5 w-3.5 " + (view === "chat" ? "text-primary" : "")} />
+            <span className={view === "chat" ? "font-medium" : ""}>对话</span>
+          </div>
+          <div
+            className={
+              "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors " +
+              (view === "kb"
+                ? "bg-gradient-flare-soft text-foreground"
+                : "text-muted-foreground/60 hover:bg-muted hover:text-foreground")
+            }
+            onClick={() => onNavigate("kb")}
+          >
+            <Database className={"h-3.5 w-3.5 " + (view === "kb" ? "text-primary" : "")} />
+            <span className={view === "kb" ? "font-medium" : ""}>知识库</span>
+            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M3a</span>
+          </div>
+          <div
+            className={
+              "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors " +
+              (view === "memory"
+                ? "bg-gradient-flare-soft text-foreground"
+                : "text-muted-foreground/60 hover:bg-muted hover:text-foreground")
+            }
+            onClick={() => onNavigate("memory")}
+          >
+            <Brain className={"h-3.5 w-3.5 " + (view === "memory" ? "text-primary" : "")} />
+            <span className={view === "memory" ? "font-medium" : ""}>记忆</span>
+            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M3b</span>
           </div>
           <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground/60">
             <Sparkles className="h-3.5 w-3.5" />
             <span>技能 · 轨迹 · 工具</span>
             <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M3+</span>
-          </div>
-          <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground/60">
-            <Wrench className="h-3.5 w-3.5" />
-            <span>模型 · 记忆 · MCP</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M4+</span>
           </div>
         </div>
       </div>

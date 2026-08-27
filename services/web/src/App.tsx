@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { createTask, deleteTask, getTask, listTasks } from "./api";
 import ChatView from "./components/ChatView";
 import Composer from "./components/Composer";
+import KnowledgeBaseView from "./components/KnowledgeBaseView";
+import MemoryView from "./components/MemoryView";
 import Sidebar from "./components/Sidebar";
 import type { Item } from "./types";
+
+export type ViewId = "chat" | "kb" | "memory";
 
 let nextId = 1;
 
@@ -26,6 +30,7 @@ function streamUrl(taskId: string): string {
 }
 
 export default function App() {
+  const [view, setView] = useState<ViewId>("chat");
   const [input, setInput] = useState("");
   const [maxSteps, setMaxSteps] = useState(5);
   const [threadId, setThreadId] = useState("");
@@ -244,23 +249,33 @@ export default function App() {
           onNew={newChat}
           onDelete={handleDelete}
           running={running}
+          view={view}
+          onNavigate={setView}
         />
       </div>
       <main className="flex min-w-0 flex-1 flex-col">
-        <ChatView items={items} running={running} onPick={(t) => send(t)} />
-        <Composer
-          value={input}
-          onChange={setInput}
-          onSend={() => send()}
-          onStop={cancel}
-          onKeyDown={onKeyDown}
-          disabled={false}
-          running={running}
-          maxSteps={maxSteps}
-          setMaxSteps={setMaxSteps}
-          threadId={threadId}
-          setThreadId={setThreadId}
-        />
+        {view === "chat" ? (
+          <>
+            <ChatView items={items} running={running} onPick={(t) => send(t)} />
+            <Composer
+              value={input}
+              onChange={setInput}
+              onSend={() => send()}
+              onStop={cancel}
+              onKeyDown={onKeyDown}
+              disabled={false}
+              running={running}
+              maxSteps={maxSteps}
+              setMaxSteps={setMaxSteps}
+              threadId={threadId}
+              setThreadId={setThreadId}
+            />
+          </>
+        ) : view === "kb" ? (
+          <KnowledgeBaseView />
+        ) : (
+          <MemoryView />
+        )}
       </main>
     </div>
   );
