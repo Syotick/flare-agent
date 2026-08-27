@@ -61,12 +61,14 @@ def build_react_agent(
     *,
     max_steps: int = 5,
     checkpointer: Any = None,
+    memory_context: str | None = None,
 ):
     """构建 ReAct 核心图：actor ↔ tool_executor（带预算熔断）。
 
     - llm: ModelProvider 接口（多模型可路由的入口）
     - registry: ToolRegistry（工具执行）
     - checkpointer: LangGraph 持久化（SQLite/PG/内存）
+    - memory_context: M3b 分层记忆的上下文块，注入首个 user 消息（F4.3 上下文工程）
     """
 
     async def actor(state: AgentState) -> dict[str, Any]:
@@ -81,7 +83,10 @@ def build_react_agent(
             }
         messages = list(state.get("messages", []))
         if not messages:
-            messages.append(LLMMessage(role="user", content=state.get("task_input", "")))
+            content = state.get("task_input", "")
+            if memory_context:
+                content = memory_context + "\n\n" + content
+            messages.append(LLMMessage(role="user", content=content))
         response = await llm.chat(messages)
         messages.append(LLMMessage(role="assistant", content=response.content))
         try:

@@ -46,6 +46,7 @@
 | --- | --- | --- |
 | [01-agent-interview-questions.md](./learning/01-agent-interview-questions.md) | draft | 高级 Agent 工程师面试题库（实践 + 真理），FR-10 验收清单 |
 | [02-rag-ingestion-pipeline.md](./learning/02-rag-ingestion-pipeline.md) | draft | RAG 入库管线与向量检索（实践 + 真理），FR-5 配套 |
+| [03-memory-and-context-engineering.md](./learning/03-memory-and-context-engineering.md) | draft | 分层记忆与上下文工程（实践 + 真理），FR-4 配套 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |

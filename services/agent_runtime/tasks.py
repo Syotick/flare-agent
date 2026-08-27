@@ -72,10 +72,12 @@ class TaskManager:
         registry=None,
         llm=None,
         checkpointer_factory=None,
+        memory=None,
     ) -> None:
         self._registry = registry or create_default_registry()
         self._llm = llm or MockModelProvider()
         self._checkpointer_factory = checkpointer_factory or get_checkpointer
+        self._memory = memory  # M3b 分层记忆（None 则不做上下文注入）
         self._tasks: dict[str, TaskRecord] = {}
 
     async def create(
@@ -100,11 +102,16 @@ class TaskManager:
         task.status = "running"
         try:
             checkpointer = await self._checkpointer_factory()
+            memory_context = None
+            if self._memory is not None:
+                # F4.3：任务开始时按 task_input 召回向量记忆 + 全部长期事实，拼成上下文注入
+                memory_context = await self._memory.build_context(query=task.task_input)
             agent = build_react_agent(
                 self._llm,
                 self._registry,
                 max_steps=task.max_steps,
                 checkpointer=checkpointer,
+                memory_context=memory_context,
             )
             async for update in agent.astream(
                 {"task_input": task.task_input},

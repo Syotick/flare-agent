@@ -12,13 +12,19 @@ from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 
 from agent_runtime.app import create_app
+from memory.memory import MemoryManager
 from rag.pipeline import KnowledgeBase
 from rag.store import SqliteVectorStore
 
 _kb_path = Path(__file__).resolve().parents[1] / "data" / "kb.sqlite3"
+_mem_path = Path(__file__).resolve().parents[1] / "data" / "memory.sqlite3"
+_mem_vec_path = Path(__file__).resolve().parents[1] / "data" / "memory_vec.sqlite3"
 _kb_path.parent.mkdir(parents=True, exist_ok=True)
 
-app = create_app(knowledge_base=KnowledgeBase(store=SqliteVectorStore(str(_kb_path))))
+app = create_app(
+    knowledge_base=KnowledgeBase(store=SqliteVectorStore(str(_kb_path))),
+    memory=MemoryManager(str(_mem_path), vector_store=SqliteVectorStore(str(_mem_vec_path))),
+)
 
 _web_dist = Path(__file__).resolve().parents[1] / "web" / "dist"
 if _web_dist.is_dir():
