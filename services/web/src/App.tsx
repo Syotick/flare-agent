@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ActionIcon, AppShell, Badge, Group, Text } from "@mantine/core";
 import { createTask, deleteTask, getTask, listTasks } from "./api";
 import { Composer, Sidebar, renderItem } from "./components";
 import { IconMenu, IconSpark } from "./icons";
@@ -37,7 +38,7 @@ export default function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [tasks, setTasks] = useState<import("./api").TaskDetail[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // 默认展开（桌面常驻）
+  const [sidebarOpen, setSidebarOpen] = useState(true); // 默认展开
   const endRef = useRef<HTMLDivElement | null>(null);
   const lastToolId = useRef<number | null>(null);
   const lastAssistantId = useRef<number | null>(null);
@@ -244,7 +245,7 @@ export default function App() {
   const pickTask = (taskId: string) => {
     setRunning(true);
     setActiveTaskId(taskId);
-    if (window.innerWidth < 960) setSidebarOpen(false); // 窄屏选完自动收起
+    if (window.innerWidth < 640) setSidebarOpen(false); // 窄屏选完自动收起
     rememberTask(taskId);
     getTask(taskId)
       .then((d) => {
@@ -259,7 +260,6 @@ export default function App() {
     try {
       await deleteTask(taskId);
       if (activeTaskId === taskId) {
-        // 删除当前会话 → 清空并回到新对话
         setItems([]);
         setActiveTaskId(null);
         setRunning(false);
@@ -269,7 +269,6 @@ export default function App() {
       }
       refreshHistory();
     } catch {
-      // 删除失败：静默，刷新列表保持一致
       refreshHistory();
     }
   };
@@ -294,38 +293,48 @@ export default function App() {
   const hasContent = items.length > 0;
 
   return (
-    <div className="app">
-      <Sidebar
-        tasks={tasks}
-        activeTaskId={activeTaskId}
-        onPick={pickTask}
-        onNew={newChat}
-        onDelete={handleDelete}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      <div className="main">
-        {/* 顶栏 */}
-        <header className="header">
-          <button
-            className={"menu-btn" + (sidebarOpen ? " active" : "")}
-            onClick={() => setSidebarOpen((o) => !o)}
-            title={sidebarOpen ? "收起侧栏" : "展开侧栏"}
-          >
-            <IconMenu size={17} />
-          </button>
-          <div className="header-center">
+    <AppShell
+      header={{ height: 52 }}
+      navbar={{ width: 280, breakpoint: "sm", collapsed: { desktop: !sidebarOpen, mobile: !sidebarOpen } }}
+      padding={0}
+    >
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between">
+          <Group gap="sm">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              onClick={() => setSidebarOpen((o) => !o)}
+              title={sidebarOpen ? "收起侧栏" : "展开侧栏"}
+            >
+              <IconMenu size={17} />
+            </ActionIcon>
             <span className="orb">
               <IconSpark size={11} />
             </span>
-            <h1>Flare</h1>
-            <span className="header-badge">Agent</span>
-          </div>
+            <Text fw={700} fz={15} lh={1}>
+              Flare
+            </Text>
+            <Badge variant="light" color="flare" size="xs" radius="xl">
+              Agent
+            </Badge>
+          </Group>
           <div className="header-right" />
-        </header>
+        </Group>
+      </AppShell.Header>
 
-        {/* 对话区 */}
+      <AppShell.Navbar p="sm">
+        <Sidebar
+          tasks={tasks}
+          activeTaskId={activeTaskId}
+          onPick={pickTask}
+          onNew={newChat}
+          onDelete={handleDelete}
+        />
+      </AppShell.Navbar>
+
+      <AppShell.Main>
         <div className="chat">
           {!hasContent ? (
             <div className="welcome">
@@ -334,11 +343,13 @@ export default function App() {
                   <IconSpark size={20} />
                 </span>
               </div>
-              <h2>有什么可以帮你的？</h2>
-              <p className="welcome-sub">
+              <Text component="h2" fz={22} fw={650} mb={10}>
+                有什么可以帮你的？
+              </Text>
+              <Text c="dimmed" size="sm" ta="center" maw={420}>
                 Flare 是一个可上线的 AI Agent 平台。
                 给我一个任务，我会思考、调用工具、观察并给出结论。
-              </p>
+              </Text>
             </div>
           ) : (
             <div className="msgs">
@@ -353,7 +364,6 @@ export default function App() {
             </div>
           )}
 
-          {/* 输入栏 */}
           <Composer
             value={input}
             onChange={setInput}
@@ -368,7 +378,7 @@ export default function App() {
             setThreadId={setThreadId}
           />
         </div>
-      </div>
-    </div>
+      </AppShell.Main>
+    </AppShell>
   );
 }

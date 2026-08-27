@@ -1,4 +1,19 @@
 import { useEffect, useState } from "react";
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Code,
+  Group,
+  NumberInput,
+  Paper,
+  ScrollArea,
+  Text,
+  Textarea,
+  TextInput,
+  Tooltip,
+  UnstyledButton,
+} from "@mantine/core";
 import type { Item, ToolResult } from "./types";
 import type { TaskDetail } from "./api";
 import {
@@ -55,7 +70,7 @@ export function AssistantBubble({ text, done }: { text: string; done: boolean })
   );
 }
 
-// 工具调用卡（Codex 风格：简洁、可折叠）
+// 工具调用卡（Codex 风格）
 export function ToolCard({
   name,
   args,
@@ -69,21 +84,28 @@ export function ToolCard({
 }) {
   const [open, setOpen] = useState(false);
   const ok = result ? result.ok : true;
+  const tag = status === "running" ? "running" : ok ? result?.error_code || "done" : result?.error_code || "error";
   return (
     <div className="row tool-row">
-      <div className="toolblock">
-        <button className="tool-btn" onClick={() => setOpen(!open)}>
+      <Paper className="toolblock" radius="md" withBorder>
+        <UnstyledButton className="tool-btn" onClick={() => setOpen(!open)}>
           <span className="tool-icon">
             <IconTool size={14} />
           </span>
-          <code>{name}</code>
-          <span className={"tool-tag " + (ok ? "ok" : "err")}>
-            {status === "running" ? "running" : ok ? result?.error_code || "done" : result?.error_code || "error"}
-          </span>
+          <Code fz={12.5}>{name}</Code>
+          <Badge
+            ml="auto"
+            size="sm"
+            variant="light"
+            color={!ok ? "red" : status === "running" ? "yellow" : "green"}
+            className="tool-tag"
+          >
+            {tag}
+          </Badge>
           <span className={"chev" + (open ? " open" : "")}>
             <IconChevron dir="down" size={13} />
           </span>
-        </button>
+        </UnstyledButton>
         {open && (
           <div className="tool-detail">
             <div className="tool-kv">
@@ -98,7 +120,7 @@ export function ToolCard({
             )}
           </div>
         )}
-      </div>
+      </Paper>
     </div>
   );
 }
@@ -130,7 +152,7 @@ export function renderItem(it: Item) {
   }
 }
 
-// ===== 会话侧边栏（WorkBuddy 式：搜索 / 日期分组 / 切换 / 删除） =====
+// ===== 会话侧边栏（WorkBuddy 式） =====
 
 function relTime(ts: number): string {
   const ms = Date.now() - ts * 1000;
@@ -165,10 +187,8 @@ export function Sidebar(props: {
   onPick: (taskId: string) => void;
   onNew: () => void;
   onDelete: (taskId: string) => void;
-  open: boolean;
-  onClose: () => void;
 }) {
-  const { tasks, activeTaskId, onPick, onNew, onDelete, open, onClose } = props;
+  const { tasks, activeTaskId, onPick, onNew, onDelete } = props;
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -176,78 +196,87 @@ export function Sidebar(props: {
     : tasks;
   const groups = groupByDate(filtered);
   return (
-    <>
-      {open && <div className="sidebar-overlay" onClick={onClose} />}
-      <div className={"sidebar" + (open ? " open" : "")}>
-        <div className="sidebar-header">
-          <span className="sidebar-title">会话</span>
-          <button className="sidebar-close" onClick={onClose} title="关闭侧栏">
-            <IconClose size={15} />
-          </button>
-        </div>
-        <div className="sidebar-actions">
-          <button className="new-chat" onClick={onNew}>
-            <IconPlus size={14} />
-            <span>新对话</span>
-          </button>
-          <div className="sidebar-search">
-            <span className="search-ico">
-              <IconSearch size={13} />
-            </span>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索会话…"
-            />
-            {query && (
-              <button className="search-clear" onClick={() => setQuery("")} title="清除">
-                <IconClose size={12} />
+    <div className="sidebar-inner">
+      <Button
+        fullWidth
+        variant="light"
+        color="flare"
+        leftSection={<IconPlus size={14} />}
+        onClick={onNew}
+        mb="sm"
+      >
+        新对话
+      </Button>
+      <TextInput
+        leftSection={<IconSearch size={13} />}
+        placeholder="搜索会话…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        rightSection={
+          query ? (
+            <ActionIcon size="sm" variant="subtle" color="gray" onClick={() => setQuery("")}>
+              <IconClose size={12} />
+            </ActionIcon>
+          ) : undefined
+        }
+        mb="sm"
+        size="sm"
+      />
+      <ScrollArea className="sidebar-scroll">
+        {filtered.length === 0 && (
+          <Text size="sm" c="dimmed" ta="center" py="lg">
+            {tasks.length === 0 ? "还没有会话，发起一个任务吧" : "没有匹配的会话"}
+          </Text>
+        )}
+        {groups.map((g) => (
+          <div key={g.label}>
+            <Text size="xs" fw={600} c="dimmed" tt="uppercase" pl="sm" pt="md" pb={4} fz={11}>
+              {g.label}
+            </Text>
+            {g.items.map((t) => (
+              <button
+                key={t.task_id}
+                className={"sidebar-item" + (t.task_id === activeTaskId ? " active" : "")}
+                onClick={() => onPick(t.task_id)}
+              >
+                <Text size="sm" fw={activeTaskId === t.task_id ? 600 : 400} truncate>
+                  {t.task_input}
+                </Text>
+                <Group gap={6} mt={4} align="center">
+                  <span className={"si-dot " + t.status} />
+                  <Text size="xs" c="dimmed" fz={11} tt="capitalize">
+                    {t.status}
+                  </Text>
+                  <Text size="xs" c="dimmed" fz={10.5} ml="auto" style={{ fontFamily: "var(--mono)" }}>
+                    {relTime(t.created_at)}
+                  </Text>
+                  <Tooltip label="删除会话" withArrow>
+                    <span>
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        color="gray"
+                        className="si-del"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(t.task_id);
+                        }}
+                      >
+                        <IconTrash size={13} />
+                      </ActionIcon>
+                    </span>
+                  </Tooltip>
+                </Group>
               </button>
-            )}
+            ))}
           </div>
-        </div>
-        <div className="sidebar-list">
-          {filtered.length === 0 && (
-            <div className="sidebar-empty">
-              {tasks.length === 0 ? "还没有会话，发起一个任务吧" : "没有匹配的会话"}
-            </div>
-          )}
-          {groups.map((g) => (
-            <div key={g.label} className="group">
-              <div className="group-label">{g.label}</div>
-              {g.items.map((t) => (
-                <div
-                  key={t.task_id}
-                  className={"sidebar-item" + (t.task_id === activeTaskId ? " active" : "")}
-                  onClick={() => onPick(t.task_id)}
-                >
-                  <div className="si-title">{t.task_input}</div>
-                  <div className="si-meta">
-                    <span className={"si-dot " + t.status} />
-                    <span className="si-status">{t.status}</span>
-                    <span className="si-time">{relTime(t.created_at)}</span>
-                    <button
-                      className="si-del"
-                      title="删除会话"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(t.task_id);
-                      }}
-                    >
-                      <IconTrash size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
+        ))}
+      </ScrollArea>
+    </div>
   );
 }
 
-// 底部输入栏（仿 DeepSeek：简洁、固定底部、Enter 发送）
+// ===== 底部输入栏（Mantine Textarea + 按钮） =====
 export function Composer(props: {
   value: string;
   onChange: (v: string) => void;
@@ -277,59 +306,77 @@ export function Composer(props: {
 
   return (
     <div className="composer">
-      <div className="composer-box">
-        <textarea
+      <Paper className="composer-box" radius="lg" withBorder p="sm">
+        <Textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="给 Flare 发一个任务…"
-          rows={1}
+          variant="unstyled"
+          autosize
+          minRows={1}
+          maxRows={6}
           disabled={disabled}
         />
-        <div className="composer-bar">
-          <div className="composer-left">
-            <span className="hint">Enter 发送 · Shift+Enter 换行</span>
-          </div>
+        <Group justify="space-between" mt={8}>
+          <Text size="xs" c="dimmed" fz={11}>
+            Enter 发送 · Shift+Enter 换行
+          </Text>
           {running ? (
-            <button className="btn-stop" onClick={onStop}>
-              <IconStop size={13} />
-              <span>停止</span>
-            </button>
+            <Button
+              size="xs"
+              variant="light"
+              color="red"
+              leftSection={<IconStop size={13} />}
+              onClick={onStop}
+            >
+              停止
+            </Button>
           ) : (
-            <button
-              className="btn-send"
+            <ActionIcon
+              color="flare"
+              variant="filled"
+              size="lg"
+              radius="md"
               disabled={disabled || !value.trim()}
               onClick={onSend}
               title="发送 (Enter)"
             >
               <IconSend size={15} />
-            </button>
+            </ActionIcon>
           )}
-        </div>
-      </div>
-      <div className="composer-opts">
-        <label>
-          最大步骤
-          <input
-            type="number"
+        </Group>
+      </Paper>
+      <Group gap="lg" mt={8} justify="center" fz="xs" c="dimmed">
+        <Group gap={6}>
+          <Text size="xs" c="dimmed">
+            最大步骤
+          </Text>
+          <NumberInput
+            size="xs"
             min={1}
             max={50}
             value={maxSteps}
-            onChange={(e) => setMaxSteps(Number(e.target.value) || 5)}
+            onChange={(v) => setMaxSteps(typeof v === "number" ? v : 5)}
             disabled={disabled}
+            w={70}
+            hideControls
           />
-        </label>
-        <label>
-          thread_id
-          <input
-            type="text"
+        </Group>
+        <Group gap={6}>
+          <Text size="xs" c="dimmed">
+            thread_id
+          </Text>
+          <TextInput
+            size="xs"
             value={threadId}
             onChange={(e) => setThreadId(e.target.value)}
             placeholder="留空自动生成"
             disabled={disabled}
+            w={180}
           />
-        </label>
-      </div>
+        </Group>
+      </Group>
     </div>
   );
 }
