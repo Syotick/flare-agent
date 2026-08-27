@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createTask, deleteTask, getTask, listTasks } from "./api";
 import { Composer, Sidebar, renderItem } from "./components";
+import { IconMenu, IconSpark } from "./icons";
 import type { Item } from "./types";
 
 let nextId = 1;
@@ -36,7 +37,7 @@ export default function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [tasks, setTasks] = useState<import("./api").TaskDetail[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // 默认展开（桌面常驻）
   const endRef = useRef<HTMLDivElement | null>(null);
   const lastToolId = useRef<number | null>(null);
   const lastAssistantId = useRef<number | null>(null);
@@ -243,7 +244,7 @@ export default function App() {
   const pickTask = (taskId: string) => {
     setRunning(true);
     setActiveTaskId(taskId);
-    setSidebarOpen(false);
+    if (window.innerWidth < 960) setSidebarOpen(false); // 窄屏选完自动收起
     rememberTask(taskId);
     getTask(taskId)
       .then((d) => {
@@ -307,12 +308,19 @@ export default function App() {
       <div className="main">
         {/* 顶栏 */}
         <header className="header">
-          <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
-            <span className="menu-lines" />
+          <button
+            className={"menu-btn" + (sidebarOpen ? " active" : "")}
+            onClick={() => setSidebarOpen((o) => !o)}
+            title={sidebarOpen ? "收起侧栏" : "展开侧栏"}
+          >
+            <IconMenu size={17} />
           </button>
           <div className="header-center">
-            <span className="orb" />
+            <span className="orb">
+              <IconSpark size={11} />
+            </span>
             <h1>Flare</h1>
+            <span className="header-badge">Agent</span>
           </div>
           <div className="header-right" />
         </header>
@@ -321,10 +329,14 @@ export default function App() {
         <div className="chat">
           {!hasContent ? (
             <div className="welcome">
-              <div className="welcome-orb" />
+              <div className="welcome-mark">
+                <span className="welcome-orb">
+                  <IconSpark size={20} />
+                </span>
+              </div>
               <h2>有什么可以帮你的？</h2>
               <p className="welcome-sub">
-                Flare 是一个可上线的 AI Agent 平台。<br />
+                Flare 是一个可上线的 AI Agent 平台。
                 给我一个任务，我会思考、调用工具、观察并给出结论。
               </p>
             </div>

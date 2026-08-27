@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import type { Item, ToolResult } from "./types";
 import type { TaskDetail } from "./api";
+import {
+  IconChevron,
+  IconClose,
+  IconPlus,
+  IconSearch,
+  IconSend,
+  IconSpark,
+  IconStop,
+  IconTool,
+  IconTrash,
+} from "./icons";
 
 // 打字机流式文本
 export function StreamText({ text, done }: { text: string; done: boolean }) {
@@ -30,10 +41,13 @@ export function UserBubble({ text }: { text: string }) {
   );
 }
 
-// 助手消息（带流式）
+// 助手消息（带流式 + 品牌头像）
 export function AssistantBubble({ text, done }: { text: string; done: boolean }) {
   return (
     <div className="row assistant">
+      <div className="avatar">
+        <IconSpark size={14} />
+      </div>
       <div className="bubble assistant-bubble">
         <StreamText text={text} done={done} />
       </div>
@@ -60,11 +74,14 @@ export function ToolCard({
       <div className="toolblock">
         <button className="tool-btn" onClick={() => setOpen(!open)}>
           <span className="tool-icon">
-            {!open ? "⚙" : open ? "▼" : "⚙"}
+            <IconTool size={14} />
           </span>
           <code>{name}</code>
           <span className={"tool-tag " + (ok ? "ok" : "err")}>
             {status === "running" ? "running" : ok ? result?.error_code || "done" : result?.error_code || "error"}
+          </span>
+          <span className={"chev" + (open ? " open" : "")}>
+            <IconChevron dir="down" size={13} />
           </span>
         </button>
         {open && (
@@ -164,24 +181,27 @@ export function Sidebar(props: {
       <div className={"sidebar" + (open ? " open" : "")}>
         <div className="sidebar-header">
           <span className="sidebar-title">会话</span>
-          <button className="sidebar-close" onClick={onClose} title="关闭">
-            ×
+          <button className="sidebar-close" onClick={onClose} title="关闭侧栏">
+            <IconClose size={15} />
           </button>
         </div>
         <div className="sidebar-actions">
           <button className="new-chat" onClick={onNew}>
-            ＋ 新对话
+            <IconPlus size={14} />
+            <span>新对话</span>
           </button>
           <div className="sidebar-search">
-            <span className="search-ico">⌕</span>
+            <span className="search-ico">
+              <IconSearch size={13} />
+            </span>
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索会话…"
             />
             {query && (
-              <button className="search-clear" onClick={() => setQuery("")}>
-                ×
+              <button className="search-clear" onClick={() => setQuery("")} title="清除">
+                <IconClose size={12} />
               </button>
             )}
           </div>
@@ -214,7 +234,7 @@ export function Sidebar(props: {
                         onDelete(t.task_id);
                       }}
                     >
-                      🗑
+                      <IconTrash size={13} />
                     </button>
                   </div>
                 </div>
@@ -272,11 +292,17 @@ export function Composer(props: {
           </div>
           {running ? (
             <button className="btn-stop" onClick={onStop}>
-              ■ 停止
+              <IconStop size={13} />
+              <span>停止</span>
             </button>
           ) : (
-            <button className="btn-send" disabled={disabled || !value.trim()} onClick={onSend}>
-              ▶
+            <button
+              className="btn-send"
+              disabled={disabled || !value.trim()}
+              onClick={onSend}
+              title="发送 (Enter)"
+            >
+              <IconSend size={15} />
             </button>
           )}
         </div>
