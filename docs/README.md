@@ -30,6 +30,7 @@
 | [architecture/01-architecture-overview.md](./product/architecture/01-architecture-overview.md) | draft | 架构总览（组件/数据流/扩展/高可用/部署） |
 | [architecture/02-module-design.md](./product/architecture/02-module-design.md) | draft | 模块级技术设计（目录/服务/API/数据模型/LangGraph 图/本地环境） |
 | [architecture/03-design-review-m1.md](./product/architecture/03-design-review-m1.md) | review | M1 设计评审记录（结论/决策/风险/M2 范围） |
+| [features/01-web-console-features.md](./product/features/01-web-console-features.md) | draft | Web Console 用户功能清单（面向最终用户，随功能迭代） |
 
 ### engineering/ 开发与工程规范（开发文档）
 | 文档 | 状态 | 说明 |
@@ -38,6 +39,7 @@
 | [02-load-testing-plan.md](./engineering/02-load-testing-plan.md) | draft | 压测方案（指标/工具/场景/容量模型/验收） |
 | [03-code-review-r1.md](./engineering/03-code-review-r1.md) | approved | 首轮代码审查记录（18 项处置 + 复查清单） |
 | [04-code-review-r2.md](./engineering/04-code-review-r2.md) | approved | Round 2 审查记录（ReAct 交付：F1-F4 处置 + 复查清单） |
+| [05-code-review-r3.md](./engineering/05-code-review-r3.md) | approved | Round 3 审查记录（Web 前端：L1-L4 + 问题2/3 处置 + 复查清单） |
 
 ### learning/ 学习与面试
 | 文档 | 状态 | 说明 |
