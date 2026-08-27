@@ -1,0 +1,52 @@
+name: 🐛 Bug 报告
+description: 提交一个缺陷报告
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢报告问题！请尽量提供复现信息，越完整越容易定位。
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？期望是什么？
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 最小复现示例（代码/命令/输入）
+      placeholder: |
+        1. 启动 ...
+        2. 调用 ...
+        3. 观察到 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+  - type: textarea
+    id: env
+    attributes:
+      label: 环境信息
+      description: 版本、Python/Node 版本、OS、模型/API 配置（脱敏）
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 严重程度
+      options:
+        - P0 阻断/数据损失
+        - P1 功能不可用
+        - P2 部分受影响
+        - P3 轻微/体验
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / Trace
+      description: 相关日志、trace 链接或错误栈（注意脱敏，勿贴密钥）

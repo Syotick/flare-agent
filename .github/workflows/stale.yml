@@ -1,0 +1,24 @@
+name: "Mark stale issues & PRs"
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-issue-message: "此 Issue 30 天无活动，将标记为 stale。若无回应将被自动关闭。"
+          stale-pr-message: "此 PR 30 天无活动，将标记为 stale。请更新或说明进度。"
+          days-before-stale: 30
+          days-before-close: 14
+          stale-issue-label: "stale"
+          stale-pr-label: "stale"
+          exempt-issue-labels: "pinned,security,triage"
+          exempt-pr-labels: "dependencies"
+          operations-per-run: 50

@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "目标环境"
+        default: "staging"
+        options: [staging, prod]
+
+jobs:
+  release:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version
+        id: meta
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image (backend)
+        run: |
+          if [ -f Dockerfile ]; then
+            docker build -t ghcr.io/syotick/flare-agent:${{ steps.meta.outputs.version }} .
+            echo "image built" > build-ok.txt
+          else
+            echo "no Dockerfile yet, skipping build" > build-ok.txt
+          fi
+      - name: Push image
+        if: hashFiles('build-ok.txt') != ''
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker push ghcr.io/syotick/flare-agent:${{ steps.meta.outputs.version }}
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.version }}
+          generate_release_notes: true
+
+      - name: Deploy to staging (placeholder -> ACK)
+        run: echo "TODO: kubectl/helm deploy; 金丝雀 5->20->50->100% (docs/engineering 6)"
