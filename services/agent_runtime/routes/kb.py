@@ -7,15 +7,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from rag.eval import builtin_dataset
 from rag.eval.dataset import EvalCase
 from rag.eval.ragas import CoverageProxyJudge, run_ragas
 from rag.eval.runner import run_retrieval_eval
-from rag.eval import builtin_dataset
 from rag.pipeline import KnowledgeBase
 from rag.schemas import (
     DocumentCreate,
     DocumentSummary,
-    EvalCaseIn,
     EvalRequest,
     EvalResponse,
     EvalStrategyOut,
@@ -89,13 +88,15 @@ def build_kb_router(kb: KnowledgeBase) -> APIRouter:
         else:
             raise HTTPException(
                 status_code=503,
-                detail="RAGAS LLM 判定需要真实模型（配置 FLARE_MODEL_API_KEY 后 M4 接入），当前未配置",
+                detail="RAGAS LLM 判定需真实模型（FLARE_MODEL_API_KEY，M4 接入），当前未配置",
             )
         return EvalResponse(
             dataset=report.dataset,
             k=report.k,
             strategies=[
-                EvalStrategyOut(strategy=s.strategy, k=s.k, aggregate=s.aggregate, per_query=s.per_query)
+                EvalStrategyOut(
+                    strategy=s.strategy, k=s.k, aggregate=s.aggregate, per_query=s.per_query
+                )
                 for s in report.strategies
             ],
             skipped=report.skipped,

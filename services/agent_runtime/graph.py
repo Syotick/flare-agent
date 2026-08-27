@@ -43,6 +43,25 @@ def _tool_message(name: str, result: ToolResult) -> LLMMessage:
     return LLMMessage(role="tool", content=f"[{name}] {content}")
 
 
+def _build_tools_json(registry: ToolRegistry) -> list[dict]:
+    """把工具注册表转成 OpenAI 原生 function-calling 工具清单（M4）。
+
+    真实供应商（OpenAICompatibleProvider）用它做原生工具调用；
+    mock / 文本型供应商忽略它（仍靠 system schema 提示）。两路并存，无感知切换。
+    """
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description,
+                "parameters": t.parameters,
+            },
+        }
+        for t in registry.list()
+    ]
+
+
 def _build_tool_schema(registry: ToolRegistry) -> str:
     """把工具 schema（name/description/parameters）组装成 system 提示（R1）。
 
@@ -110,7 +129,8 @@ def build_react_agent(
             if memory_context:
                 content = memory_context + "\n\n" + content
             messages.append(LLMMessage(role="user", content=content))
-        response = await llm.chat(messages)
+        tools = _build_tools_json(registry) if registry.list() else None
+        response = await llm.chat(messages, tools=tools)
         messages.append(LLMMessage(role="assistant", content=response.content))
         try:
             decision = _parse_decision(response.content)

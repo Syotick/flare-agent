@@ -40,6 +40,7 @@ class MockModelProvider:
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tools: list[dict] | None = None,  # M4：mock 走确定性决策，忽略工具清单
     ) -> LLMResponse:
         content = self._decide(messages).model_dump_json()
         prompt_tokens = sum(len(m.content) for m in messages)

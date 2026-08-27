@@ -72,6 +72,7 @@ class ModelProvider(Protocol):
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tools: list[dict] | None = None,  # M4：原生 function-calling 工具清单（OpenAI 形态）
     ) -> LLMResponse: ...
 
     async def stream(

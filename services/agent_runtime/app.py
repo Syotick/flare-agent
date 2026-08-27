@@ -25,6 +25,7 @@ from memory.mem_tools import build_memory_tools
 from memory.memory import MemoryManager
 from rag.kb_tools import build_kb_search_tool
 from rag.pipeline import KnowledgeBase
+from sandbox import build_sandbox
 from tools_gateway.builtin import create_default_registry
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,8 @@ def create_app(
             kb = KnowledgeBase()  # 开发默认：内存 SQLite + HashEmbedder
         if mem is None:
             mem = MemoryManager()  # 开发默认：内存事实库 + 向量库
-        registry = create_default_registry()
+        sandbox = build_sandbox(settings)  # M4：开发=本地子进程；prod=容器(fail-fast 占位)
+        registry = create_default_registry(sandbox=sandbox)
         registry.register(build_kb_search_tool(kb))
         for tool in build_memory_tools(mem):
             registry.register(tool)
@@ -83,6 +85,8 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         yield
+        if task_manager is not None:
+            await task_manager.close()  # M4：关闭模型 HTTP 客户端等资源
         if kb is not None:
             await kb.close()
         if mem is not None:

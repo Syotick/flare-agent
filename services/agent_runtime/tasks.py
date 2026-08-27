@@ -187,6 +187,12 @@ class TaskManager:
         )
         yield "event: result\n" f"data: {payload}\n\n"
 
+    async def close(self) -> None:
+        """关闭持有的资源（M4：模型 HTTP 客户端等）。无 close 的实现自动跳过。"""
+        close = getattr(self._llm, "close", None)
+        if close is not None:
+            await close()
+
     def get(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)
 

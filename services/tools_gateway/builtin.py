@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from sandbox.sandbox_tools import build_sandbox_run_tool
 from tools_gateway.registry import Tool, ToolRegistry, ToolResult
 
 
@@ -10,8 +11,11 @@ async def _echo(**kwargs: str) -> ToolResult:
     return ToolResult(ok=True, content=f"echo: {kwargs['text']}")
 
 
-def create_default_registry() -> ToolRegistry:
-    """创建含全部内置工具的注册表。"""
+def create_default_registry(sandbox=None) -> ToolRegistry:
+    """创建含全部内置工具的注册表。
+
+    sandbox：可选 SandboxRunner，传入则注册 sandbox_run 工具（M4，Agent 可执行代码）。
+    """
     registry = ToolRegistry()
     registry.register(
         Tool(
@@ -25,4 +29,6 @@ def create_default_registry() -> ToolRegistry:
             func=_echo,
         )
     )
+    if sandbox is not None:
+        registry.register(build_sandbox_run_tool(sandbox))
     return registry

@@ -28,9 +28,10 @@ class Settings(BaseSettings):
     object_store_access_key: str = "minioadmin"
     object_store_secret_key: str = "minioadmin"
 
-    model_provider: str = "mock"
+    model_provider: str = "mock"  # mock | openai（OpenAI 兼容；DashScope/DeepSeek 走同协议）
     model_api_key: str = ""
-    model_base_url: str = "http://localhost:9001/v1"
+    model_base_url: str = "http://localhost:9001/v1"  # 本地 vLLM 默认端口
+    model_name: str = "gpt-4o-mini"
 
 
 @lru_cache

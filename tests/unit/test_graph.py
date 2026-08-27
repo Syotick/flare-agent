@@ -17,7 +17,9 @@ class AlwaysToolProvider:
 
     model = "always-tool"
 
-    async def chat(self, messages, *, model=None, temperature=None, max_tokens=None) -> LLMResponse:
+    async def chat(
+        self, messages, *, model=None, temperature=None, max_tokens=None, tools=None
+    ) -> LLMResponse:
         content = json.dumps(
             {"action": "call_tool", "tool": {"name": "echo", "args": {"text": "x"}}}
         )
@@ -36,7 +38,9 @@ class FixedDecisionProvider:
     def __init__(self, decisions: list[dict]) -> None:
         self._queue = list(decisions)
 
-    async def chat(self, messages, *, model=None, temperature=None, max_tokens=None) -> LLMResponse:
+    async def chat(
+        self, messages, *, model=None, temperature=None, max_tokens=None, tools=None
+    ) -> LLMResponse:
         if self._queue:
             content = json.dumps(self._queue.pop(0))
         else:
