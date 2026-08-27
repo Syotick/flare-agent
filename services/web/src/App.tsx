@@ -29,10 +29,13 @@ function streamUrl(taskId: string): string {
   return "/v1/tasks/" + taskId + "/stream";
 }
 
+// 内部参数（对用户不可见，产品层不给用户配置工程细节）
+const MAX_STEPS = 8; // Agent 单次任务最大思考→行动轮次
+
 export default function App() {
   const [view, setView] = useState<ViewId>("chat");
   const [input, setInput] = useState("");
-  const [maxSteps, setMaxSteps] = useState(5);
+  // thread_id 由系统管理：新建会话=空(自动生成)；切换会话=沿用该会话线程（续聊上下文）
   const [threadId, setThreadId] = useState("");
   const [running, setRunning] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
@@ -49,15 +52,17 @@ export default function App() {
     refreshHistory();
   }, []);
 
-  // 刷新恢复
+  // 刷新恢复：回放该会话轨迹，并沿用其线程（续聊上下文连续）
   useEffect(() => {
     const hash = window.location.hash.match(/task=([a-f0-9]+)/);
     if (hash) {
       const tid = hash[1];
+      setItems([]);
       setActiveTaskId(tid);
       setRunning(true);
       getTask(tid)
         .then((d) => {
+          setThreadId(d.thread_id);
           if (d.status !== "pending" && d.status !== "running") setRunning(false);
         })
         .catch(() => setRunning(false));
@@ -172,7 +177,9 @@ export default function App() {
     setInput("");
     setItems((prev) => [...prev, { id: nextId++, kind: "user", text: content }]);
     try {
-      const created = await createTask(content, maxSteps, threadId || undefined);
+      const created = await createTask(content, MAX_STEPS, threadId || undefined);
+      // 同步服务端生成的线程：同会话后续消息自动续聊（上下文连续，无需用户关心 thread_id）
+      setThreadId(created.thread_id);
       rememberTask(created.task_id);
       setActiveTaskId(created.task_id);
       setItems((prev) => [
@@ -195,9 +202,14 @@ export default function App() {
   };
 
   const pickTask = (taskId: string) => {
+    // 切换会话：先清空消息区，再回放该会话轨迹（SSE 会重新推送全部事件）
+    setItems([]);
     setRunning(true);
     setActiveTaskId(taskId);
     rememberTask(taskId);
+    // 沿用该会话的线程：后续发言在同一线程续聊，上下文连续
+    const found = tasks.find((t) => t.task_id === taskId);
+    setThreadId(found ? found.thread_id : "");
     getTask(taskId)
       .then((d) => {
         if (d.status !== "pending" && d.status !== "running") setRunning(false);
@@ -227,6 +239,7 @@ export default function App() {
     setActiveTaskId(null);
     setRunning(false);
     setInput("");
+    setThreadId(""); // 新会话 = 新线程（由服务端自动生成）
     const url = new URL(window.location.href);
     url.hash = "";
     window.history.replaceState(null, "", url.toString());
@@ -265,10 +278,6 @@ export default function App() {
               onKeyDown={onKeyDown}
               disabled={false}
               running={running}
-              maxSteps={maxSteps}
-              setMaxSteps={setMaxSteps}
-              threadId={threadId}
-              setThreadId={setThreadId}
             />
           </>
         ) : view === "kb" ? (
