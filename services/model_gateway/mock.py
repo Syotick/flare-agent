@@ -1,16 +1,32 @@
-"""确定性 Mock 供应商（无网络/无 Key）：本地开发与单元测试。"""
+"""确定性 Mock 供应商（无网络/无 Key）：本地开发与单元测试。
+
+模拟"会调用 echo 工具、能观察结果给出结论"的模型，返回结构化 JSON 决策串
+（与真实 function-calling 同形态，graph 层负责解析）：
+  - 需要工具: {"action": "call_tool", "tool": {"name": "echo", "args": {"text": <首个 user 消息>}}}
+  - 已有工具观察: {"action": "final", "answer": "完成: <观察内容>"}
+"""
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 
 from model_gateway.providers import LLMMessage, LLMResponse, LLMUsage
 
 
 class MockModelProvider:
-    """根据最后一条消息给出可复现的回复，供 LangGraph 图测试/演示。"""
+    """确定性 mock 供应商。"""
 
     model: str = "mock"
+
+    def _decide(self, messages: list[LLMMessage]) -> str:
+        last = messages[-1] if messages else None
+        if last is not None and last.role == "tool":
+            return json.dumps({"action": "final", "answer": f"完成: {last.content}"})
+        user_text = next((m.content for m in messages if m.role == "user"), "")
+        return json.dumps(
+            {"action": "call_tool", "tool": {"name": "echo", "args": {"text": user_text}}}
+        )
 
     async def chat(
         self,
@@ -20,8 +36,7 @@ class MockModelProvider:
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
-        last = messages[-1] if messages else LLMMessage("user", "")
-        content = f"[mock:{last.role}] {last.content}"
+        content = self._decide(messages)
         prompt_tokens = sum(len(m.content) for m in messages)
         return LLMResponse(
             content=content,
