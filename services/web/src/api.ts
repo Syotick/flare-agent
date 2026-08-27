@@ -11,6 +11,12 @@ export interface TaskCreated {
   status: string;
 }
 
+export interface StepEvent {
+  type: string;
+  node: string[];
+  data: Record<string, any>;
+}
+
 export interface TaskDetail {
   task_id: string;
   thread_id: string;
@@ -26,13 +32,15 @@ export interface TaskDetail {
 async function json<T>(resp: Response): Promise<T> {
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
-    const msg = body?.detail?.message || body?.message || "请求失败 (HTTP " + resp.status + ")";
+    const msg =
+      body?.detail?.message ||
+      body?.message ||
+      "请求失败 (HTTP " + resp.status + ")";
     throw new Error(msg);
   }
   return resp.json() as Promise<T>;
 }
 
-/** 提交任务：POST 立即返回 task_id（后台执行，L1）。 */
 export async function createTask(
   taskInput: string,
   maxSteps = 5,
@@ -47,12 +55,10 @@ export async function createTask(
   );
 }
 
-/** 任务详情（刷新恢复用）。 */
 export async function getTask(taskId: string): Promise<TaskDetail> {
   return json<TaskDetail>(await fetch("/v1/tasks/" + taskId));
 }
 
-/** 最近任务列表（历史入口）。 */
 export async function listTasks(): Promise<TaskDetail[]> {
   return json<TaskDetail[]>(await fetch("/v1/tasks"));
 }
