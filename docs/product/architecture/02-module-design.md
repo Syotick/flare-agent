@@ -17,13 +17,13 @@
 flare-agent/
 ├── docs/                        # 文档中心（见 docs/README.md）
 ├── services/                    # 后端服务（模块化单体起步，按需拆分）
-│   ├── agent-runtime/           # Agent 编排运行时（FastAPI + LangGraph）
-│   ├── model-gateway/           # 模型网关（OpenAI 兼容：路由/缓存/配额）
-│   ├── rag/                     # RAG：入库管线 + 检索服务
-│   ├── tools-gateway/           # 工具/MCP 网关 + ToolRegistry
-│   ├── sandbox/                 # 沙箱执行服务（Docker dev / Kata prod）
-│   ├── web/                     # Web 控制台（Vite + React）
-│   └── common/                  # 共享：schemas、SDK、logging、OTel、配置
+│   ├── agent_runtime/          # Agent 编排运行时（FastAPI + LangGraph）
+│   ├── model_gateway/          # 模型网关（OpenAI 兼容：路由/缓存/配额）
+│   ├── rag/                    # RAG：入库管线 + 检索服务
+│   ├── tools_gateway/          # 工具/MCP 网关 + ToolRegistry
+│   ├── sandbox/                # 沙箱执行服务（Docker dev / Kata prod）
+│   ├── web/                    # Web 控制台（Vite + React，Node 工程）
+│   └── common/                 # 共享：schemas、SDK、logging、OTel、配置
 ├── infra/
 │   ├── docker-compose.yml       # 本地环境一键起（PG/Redis/Milvus|Qdrant/MinIO/...）
 │   ├── k8s/                     # 阿里云 ACK 部署（Helm，M5）
