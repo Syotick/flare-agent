@@ -47,6 +47,8 @@
 | [01-agent-interview-questions.md](./learning/01-agent-interview-questions.md) | draft | 高级 Agent 工程师面试题库（实践 + 真理），FR-10 验收清单 |
 | [02-rag-ingestion-pipeline.md](./learning/02-rag-ingestion-pipeline.md) | draft | RAG 入库管线与向量检索（实践 + 真理），FR-5 配套 |
 | [03-memory-and-context-engineering.md](./learning/03-memory-and-context-engineering.md) | draft | 分层记忆与上下文工程（实践 + 真理），FR-4 配套 |
+| [04-advanced-development-guide.md](./learning/04-advanced-development-guide.md) | draft | 进阶开发指南（分层/加工具/加 API/接模型/换存储/测试纪律），开发部分 |
+| [05-production-deployment-guide.md](./learning/05-production-deployment-guide.md) | draft | 生产部署指南（阿里云 ACK/OSS/PG/Redis/OTel/多租户/容量/SLO/回滚），部署部分 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |
