@@ -10,6 +10,7 @@
 
 ## 关键约束
 0. **推送策略（用户 2026-08-27 明确）**：默认只本地 git commit，不主动 push 远程；只有用户明确要求时才推送/发 PR。
+1. **Python 环境**：conda env `flare-agent`（Python 3.12），不用 .venv；命令 `conda run -n flare-agent python` 或 `make test/lint/dev`。
 1. 生产级（可部署、可监控、可回滚、可审计）
 2. 高可用（多可用区、无单点）
 3. 弹性扩展到百万级并发

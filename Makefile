@@ -1,27 +1,33 @@
 # Flare Agent 本地开发命令（Git Bash / macOS / Linux）
-PYTHON ?= python
+# 环境约定：conda env flare-agent（Python 3.12，与 CI 一致）；不使用 .venv
+CONDA_ENV ?= flare-agent
+PY := conda run -n $(CONDA_ENV) python
 PYTHONPATH := services
 
-.PHONY: install dev test lint fmt clean
+.PHONY: setup install dev test lint fmt clean
 
-install: ## 创建虚拟环境并安装依赖
-	$(PYTHON) -m venv .venv
-	.venv/bin/python -m pip install -U pip
-	.venv/bin/python -m pip install -r requirements-dev.txt
+setup: ## 首次：创建 conda 环境并安装依赖
+	conda create -n $(CONDA_ENV) python=3.12 -y
+	$(PY) -m pip install -U pip
+	$(PY) -m pip install -r requirements-dev.txt
+
+install: ## 环境已存在：仅安装/更新依赖
+	$(PY) -m pip install -U pip
+	$(PY) -m pip install -r requirements-dev.txt
 
 dev: ## 启动 Agent Runtime（热重载，端口 8000）
-	PYTHONPATH=services .venv/bin/uvicorn agent_runtime.main:app --reload --port 8000
+	PYTHONPATH=services $(PY) -m uvicorn agent_runtime.main:app --reload --port 8000
 
 test: ## 运行单元测试
-	PYTHONPATH=services .venv/bin/pytest tests -q
+	PYTHONPATH=services $(PY) -m pytest tests -q
 
 lint: ## Ruff + Black 检查
-	.venv/bin/ruff check services tests
-	.venv/bin/black --check --line-length 100 services tests
+	$(PY) -m ruff check services tests
+	$(PY) -m black --check --line-length 100 services tests
 
 fmt: ## 自动格式化
-	.venv/bin/black --line-length 100 services tests
-	.venv/bin/ruff check --fix services tests
+	$(PY) -m black --line-length 100 services tests
+	$(PY) -m ruff check --fix services tests
 
-clean: ## 清理产物
-	rm -rf .venv .pytest_cache .ruff_cache .mypy_cache htmlcov services/**/__pycache__
+clean: ## 删除环境
+	conda env remove -n $(CONDA_ENV) -y
