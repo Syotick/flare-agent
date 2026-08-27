@@ -8,13 +8,21 @@ LangGraph 图显式化循环的好处：每步可 checkpoint、可中断、可�
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from pydantic import ValidationError as PydanticValidationError
 
 from flare_common.errors import NotFoundError, ValidationError
-from model_gateway.providers import LLMMessage, ModelProvider
+from model_gateway.providers import LLMMessage, ModelProvider, ToolCallDecision
 from tools_gateway.registry import ToolRegistry, ToolResult
+
+logger = logging.getLogger(__name__)
+
+
+class InvalidModelOutput(Exception):
+    """模型输出无法解析为合法决策（F3：坏决策显式化，不静默吞掉）。"""
 
 
 class AgentState(TypedDict, total=False):
@@ -35,19 +43,16 @@ def _tool_message(name: str, result: ToolResult) -> LLMMessage:
     return LLMMessage(role="tool", content=f"[{name}] {content}")
 
 
-def _parse_decision(content: str) -> dict[str, Any]:
-    """解析模型决策：JSON 工具调用（与 function-calling 同形态）；解析失败按最终回答。"""
+def _parse_decision(content: str) -> ToolCallDecision:
+    """解析模型决策为共享契约 ToolCallDecision（F3）。
+
+    解析/校验失败抛 InvalidModelOutput，由 actor 显式记录并回灌观察，
+    绝不把坏决策静默当答案（L3 fail-fast 哲学）。
+    """
     try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        return {"action": "final", "answer": content}
-    if data.get("action") == "call_tool" and isinstance(data.get("tool"), dict):
-        tool = data["tool"]
-        return {
-            "action": "call_tool",
-            "tool": {"name": str(tool.get("name", "")), "args": tool.get("args", {})},
-        }
-    return {"action": "final", "answer": data.get("answer", content)}
+        return ToolCallDecision.model_validate(json.loads(content))
+    except (json.JSONDecodeError, PydanticValidationError) as exc:
+        raise InvalidModelOutput(f"模型输出无法解析为决策: {content[:200]!r}") from exc
 
 
 def build_react_agent(
@@ -79,12 +84,27 @@ def build_react_agent(
             messages.append(LLMMessage(role="user", content=state.get("task_input", "")))
         response = await llm.chat(messages)
         messages.append(LLMMessage(role="assistant", content=response.content))
-        decision = _parse_decision(response.content)
-        if decision["action"] == "call_tool":
-            return {"messages": messages, "pending_tool": decision["tool"], "action": "call_tool"}
+        try:
+            decision = _parse_decision(response.content)
+        except InvalidModelOutput as exc:
+            # F3: 坏决策显式化——记日志 + 回灌 INVALID_MODEL_OUTPUT 观察，让模型重试
+            logger.warning("INVALID_MODEL_OUTPUT: %s", exc)
+            messages.append(LLMMessage(role="tool", content=f"INVALID_MODEL_OUTPUT: {exc}"))
+            return {
+                "messages": messages,
+                "step_count": step + 1,
+                "pending_tool": None,
+                "action": "call_tool",
+            }
+        if decision.action == "call_tool" and decision.tool is not None:
+            return {
+                "messages": messages,
+                "pending_tool": {"name": decision.tool.name, "args": decision.tool.args},
+                "action": "call_tool",
+            }
         return {
             "messages": messages,
-            "output": decision.get("answer", response.content),
+            "output": decision.answer or response.content,
             "status": "completed",
             "action": "final",
             "pending_tool": None,

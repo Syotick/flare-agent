@@ -102,6 +102,26 @@ async def test_invalid_args_is_observed_not_crash() -> None:
     assert "INVALID_ARGS" in joined
 
 
+async def test_invalid_model_output_is_observed() -> None:
+    """F3: 模型输出非 JSON（坏决策）→ 显式 INVALID_MODEL_OUTPUT 观察，不静默当答案。"""
+    provider = FixedDecisionProvider(["这不是 JSON"])
+    agent = build_react_agent(provider, create_default_registry(), checkpointer=MemorySaver())
+    result = await agent.ainvoke({"task_input": "x"}, {"configurable": {"thread_id": "t-badout"}})
+    assert result["status"] == "completed"
+    joined = "\n".join(m.content for m in result["messages"])
+    assert "INVALID_MODEL_OUTPUT" in joined
+
+
+async def test_semibaked_call_tool_without_tool_observed() -> None:
+    """F3: call_tool 决策缺 tool（半熟决策）→ 校验拦截 → INVALID_MODEL_OUTPUT 观察。"""
+    provider = FixedDecisionProvider([{"action": "call_tool"}])
+    agent = build_react_agent(provider, create_default_registry(), checkpointer=MemorySaver())
+    result = await agent.ainvoke({"task_input": "x"}, {"configurable": {"thread_id": "t-semi"}})
+    assert result["status"] == "completed"
+    joined = "\n".join(m.content for m in result["messages"])
+    assert "INVALID_MODEL_OUTPUT" in joined
+
+
 async def test_checkpoint_isolates_threads() -> None:
     agent = build_react_agent(
         MockModelProvider(), create_default_registry(), checkpointer=MemorySaver()

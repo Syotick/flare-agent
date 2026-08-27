@@ -8,10 +8,15 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator
 
-from model_gateway.providers import LLMMessage, LLMResponse, LLMUsage
+from model_gateway.providers import (
+    LLMMessage,
+    LLMResponse,
+    LLMUsage,
+    ToolCall,
+    ToolCallDecision,
+)
 
 
 class MockModelProvider:
@@ -19,13 +24,13 @@ class MockModelProvider:
 
     model: str = "mock"
 
-    def _decide(self, messages: list[LLMMessage]) -> str:
+    def _decide(self, messages: list[LLMMessage]) -> ToolCallDecision:
         last = messages[-1] if messages else None
         if last is not None and last.role == "tool":
-            return json.dumps({"action": "final", "answer": f"完成: {last.content}"})
+            return ToolCallDecision(action="final", answer=f"完成: {last.content}")
         user_text = next((m.content for m in messages if m.role == "user"), "")
-        return json.dumps(
-            {"action": "call_tool", "tool": {"name": "echo", "args": {"text": user_text}}}
+        return ToolCallDecision(
+            action="call_tool", tool=ToolCall(name="echo", args={"text": user_text})
         )
 
     async def chat(
@@ -36,7 +41,7 @@ class MockModelProvider:
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> LLMResponse:
-        content = self._decide(messages)
+        content = self._decide(messages).model_dump_json()
         prompt_tokens = sum(len(m.content) for m in messages)
         return LLMResponse(
             content=content,
