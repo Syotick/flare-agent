@@ -29,6 +29,7 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 - 工作区：`/d/Data/deepseekharness_project/flare-agent`（文件工具用 `D:\Data\...`，bash 用 `/d/Data/...`，两套路径格式不同！）
 - GitHub：私有仓库 `Syotick/flare-agent`（gh 已认证，账号 Syotick）
 - 版本控制：git，主分支 `main`，中文 commit message 允许（团队用中文）；PR 分支规范见 docs/engineering
+- ⚠️ **GitHub 流程已启用（2026-08-27）**：main 已开**分支保护**——直推 main 会被拒绝，必须走 `feat/*` 分支 + PR；PR 需通过 CI 门禁（status check: `CI / Required Status Gate`）。合并方式：squash/rebase（已禁 merge commit）。仓库已配：LICENSE(MIT)/CONTRIBUTING/CODE_OF_CONDUCT/SECURITY/Issue&PR 模板/ci/release/codeql/stale/dependabot/pre-commit/labels/milestones(M1-M6)
 - **开发规范（强制）**：docs/engineering/01-development-standards.md（分支/提交/评审/测试/CI-CD/发布/SRE/安全）
 - 当前阶段：M0 完成 + 需求已确认（技术栈/形态/沙箱），进入 M1 设计评审 / M2 开发准备
 
