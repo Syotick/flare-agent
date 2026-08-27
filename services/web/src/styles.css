@@ -140,3 +140,139 @@ pre.out { color: var(--text); font-size: 14px; }
 }
 
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 20px 0 0; }
+
+/* ===== Round3: 问题2 / L2 / L3 补充样式 ===== */
+
+/* 问题2: pre 内层滚动 + 折叠 */
+.codeblock pre {
+  max-height: 320px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+button.fold {
+  margin-top: 8px;
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+button.fold:hover { color: var(--text); border-color: var(--accent); }
+
+/* 控制区（maxSteps / thread_id / 按钮） */
+.controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.controls input {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 9px;
+  font-size: 13px;
+  font-family: var(--mono);
+}
+.controls input:focus { outline: none; border-color: var(--accent); }
+.controls input[type="number"] { width: 72px; }
+.controls input[type="text"] { width: 260px; }
+.spacer { flex: 1; }
+
+button.cancel {
+  background: transparent;
+  color: var(--err);
+  border: 1px solid rgba(255, 107, 129, 0.5);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.cancel:hover { background: rgba(255, 107, 129, 0.12); }
+
+/* 错误/提示卡 */
+.card.error { border-color: rgba(255, 107, 129, 0.45); }
+pre.err { color: var(--err); }
+
+/* 双栏：轨迹 + 历史 */
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  align-items: start;
+}
+.timeline { min-width: 0; }
+
+/* 历史面板 */
+.history {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.history-title {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+.history-empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+.hist-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.hist-item:hover { border-color: var(--accent); }
+.hist-item.active { border-color: var(--accent); background: rgba(91, 140, 255, 0.08); }
+.hist-line1 { display: flex; align-items: center; gap: 8px; }
+.hist-id { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.hist-input {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dot {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.dot.completed { color: var(--ok); border-color: rgba(61, 220, 151, 0.4); }
+.dot.budget_exceeded { color: var(--warn); border-color: rgba(245, 183, 89, 0.4); }
+.dot.failed { color: var(--err); border-color: rgba(255, 107, 129, 0.4); }
+.dot.running { color: var(--accent); border-color: rgba(91, 140, 255, 0.4); }
+
+/* 自动滚底哨兵 */
+.end { height: 2px; }
+
+/* 移动端收窄 */
+@media (max-width: 760px) {
+  .columns { grid-template-columns: 1fr; }
+  .controls input[type="text"] { width: 100%; }
+}
