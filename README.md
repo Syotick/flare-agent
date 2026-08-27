@@ -19,6 +19,7 @@
 | [docs/research/02-agent-interview-questions.md](./docs/research/02-agent-interview-questions.md) | 高级 Agent 工程师面试题库（实践 + 真理） |
 | [docs/requirements/01-development-requirements.md](./docs/requirements/01-development-requirements.md) | 开发需求说明书 |
 | [docs/architecture/01-architecture-overview.md](./docs/architecture/01-architecture-overview.md) | 架构总览 |
+| [docs/engineering/01-development-standards.md](./docs/engineering/01-development-standards.md) | 开发流程与工程规范（CI/CD/测试/评审/发布/SRE） |
 
 ## 状态
 
