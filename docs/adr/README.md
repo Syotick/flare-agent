@@ -32,3 +32,4 @@
 | 0012 | 前端形态：本地 Web 优先 | accepted | 2026-08-27 |
 | 0013 | 部署平台：阿里云 ACK（K8s） | accepted | 2026-08-27 |
 | 0014 | CI/CD：GitHub Actions | accepted | 2026-08-27 |
+| 0015 | 工程结构：Monorepo + 模块化单体优先 | accepted | 2026-08-27 |

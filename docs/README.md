@@ -28,11 +28,14 @@
 | [research/01-market-and-tech-research.md](./product/research/01-market-and-tech-research.md) | approved | 市场与技术调研报告（竞品/选型/架构范式/阿里云） |
 | [requirements/01-development-requirements.md](./product/requirements/01-development-requirements.md) | approved | 开发需求说明书 v1.0（FR/NFR/里程碑/FR-10） |
 | [architecture/01-architecture-overview.md](./product/architecture/01-architecture-overview.md) | draft | 架构总览（组件/数据流/扩展/高可用/部署） |
+| [architecture/02-module-design.md](./product/architecture/02-module-design.md) | draft | 模块级技术设计（目录/服务/API/数据模型/LangGraph 图/本地环境） |
+| [architecture/03-design-review-m1.md](./product/architecture/03-design-review-m1.md) | review | M1 设计评审记录（结论/决策/风险/M2 范围） |
 
 ### engineering/ 开发与工程规范（开发文档）
 | 文档 | 状态 | 说明 |
 | --- | --- | --- |
 | [01-development-standards.md](./engineering/01-development-standards.md) | approved | 开发流程与工程规范（分支/提交/评审/测试/CI-CD/发布/SRE/安全） |
+| [02-load-testing-plan.md](./engineering/02-load-testing-plan.md) | draft | 压测方案（指标/工具/场景/容量模型/验收） |
 
 ### learning/ 学习与面试
 | 文档 | 状态 | 说明 |
@@ -56,6 +59,7 @@
 | 0012 | 前端形态：本地 Web 优先 | accepted |
 | 0013 | 部署平台：阿里云 ACK（K8s） | accepted |
 | 0014 | CI/CD：GitHub Actions | accepted |
+| 0015 | 工程结构：Monorepo + 模块化单体优先 | accepted |
 
 ## 三、命名规范（强制）
 
