@@ -40,7 +40,7 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 | 时间 | 决策 |
 | --- | --- |
 | 2026-08-27 | 仓库名 `flare-agent`（私有）；采用 monorepo 风格目录：docs + 未来 services/ 模块 |
-| 2026-08-27 | 记忆体系：CLAUDE.md + AGENTS.md 双写，docs/ 放调研/需求/架构 |
+| 2026-08-27 | 记忆体系：CLAUDE.md + AGENTS.md 双写；docs/ 已按分类重构：product(调研/需求/架构)/engineering(开发规范)/learning(面试)/adr/templates，入口 docs/README.md |
 | 2026-08-27 | 技术方向初选（待评审）：Agent 运行时主语言 **Python**（生态最强，LangGraph/CoAgents 等）；控制面可 TS |
 | 2026-08-27 | 对象存储定为**阿里云 OSS**；向量库候选 Milvus/Qdrant/pgvector（需求评审时定夺） |
 | 2026-08-27 | 并发目标表述统一为：**可弹性扩展到百万级并发接入**，不承诺恒定百万在线 |
@@ -60,7 +60,7 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 6. ~~沙箱合规~~ ✅ 按企业级微虚拟化做
 7. 团队规模与运维人力（决定自动化程度）——暂按单人全栈推进
 
-## 6. 里程碑（详细版见 docs/requirements/01-development-requirements.md §6）
+## 6. 里程碑（详细版见 docs/product/requirements/01-development-requirements.md §6）
 
 - M0 项目准备（Git/仓库/文档/记忆）✅
 - M1 需求评审与架构评审（等用户）

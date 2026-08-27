@@ -1,7 +1,7 @@
 # Flare Agent · 架构总览
 
 > 版本：v0.1 ｜ 日期：2026-08-27 ｜ 状态：草稿（随需求评审更新）
-> 上游：docs/requirements/01-development-requirements.md
+> 上游：docs/product/requirements/01-development-requirements.md
 
 ---
 

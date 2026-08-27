@@ -29,9 +29,11 @@
 - 需求已确认（技术栈/形态/沙箱），进入 M1 设计评审与 M2 开发准备
 
 ## 目录速览
-- `docs/research/` — 市场与技术调研报告 + 高级 Agent 面试题库（实践+真理）
-- `docs/requirements/` — 开发需求说明书
-- `docs/architecture/` — 架构总览
+- `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）
+- `docs/product/` — 产品与技术参考（调研/需求/架构）
+- `docs/engineering/` — 开发与工程规范（开发文档）
+- `docs/learning/` — 学习与面试（面试题库）
+- `docs/adr/` — 架构决策记录
 - `CLAUDE.md` — 详细项目记忆（唯一权威源）
 
 ## 待决策
