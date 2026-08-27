@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from importlib.metadata import version
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -44,7 +46,8 @@ def test_version() -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["name"] == "flare-agent"
-    assert isinstance(body["version"], str) and body["version"]
+    # R3: /version 必须与 pyproject 同源，杜绝漂移
+    assert body["version"] == version("flare-agent")
 
 
 def test_flare_error_response_shape() -> None:

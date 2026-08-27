@@ -37,5 +37,6 @@ class MockModelProvider:
         temperature: float | None = None,
     ) -> AsyncIterator[str]:
         response = await self.chat(messages, model=model, temperature=temperature)
-        for ch in response.content:
-            yield ch
+        # 词级分块（更接近真实 token 流形状），勿让上层形成"逐字符"依赖（R4）
+        for word in response.content.split(" "):
+            yield word + " "

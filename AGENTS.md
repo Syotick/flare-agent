@@ -27,8 +27,10 @@
 - 新增需求：面试题驱动开发——全面覆盖高级 Agent 工程师考点（多路召回/GraphRAG/记忆/安全/高并发等），实践+真理并重
 
 ## 当前进度
-- 阶段 0 完成：Git 仓库 + GitHub 私有仓库（Syotick/flare-agent）+ 文档骨架 + 记忆
-- 需求已确认（技术栈/形态/沙箱），进入 M1 设计评审与 M2 开发准备
+- 阶段 0/1 完成：Git 仓库（已公开 Syotick/flare-agent）+ 文档体系 + 记忆 + M1 设计评审（ADR ×15、模块设计、压测方案）
+- **M2 开发中**：services/ 已开工——flare_common 共享库 / agent_runtime(app 工厂+骨架) / tools_gateway(ToolRegistry+echo, async+jsonschema) / model_gateway(ModelProvider+mock)；conda env flare-agent；pytest 14 全绿
+- 代码审查：首轮记录 docs/engineering/03-code-review-r1.md（18 项已处置，复查清单待下轮核对）
+- 下一步：M2-4b ReAct 核心循环（actor↔tool 闭环）
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）

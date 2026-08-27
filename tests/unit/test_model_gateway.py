@@ -14,7 +14,8 @@ async def test_mock_chat_echoes_last_message() -> None:
     assert resp.usage.total_tokens > 0
 
 
-async def test_mock_stream_yields_all_chars() -> None:
+async def test_mock_stream_word_chunks() -> None:
     provider = MockModelProvider()
-    chunks = [c async for c in provider.stream([LLMMessage("user", "ab")])]
-    assert "".join(chunks) == "[mock:user] ab"
+    chunks = [c async for c in provider.stream([LLMMessage("user", "你好 世界")])]
+    assert "".join(chunks).strip() == "[mock:user] 你好 世界"
+    assert len(chunks) > 1  # 词级分块（更像 token 流），非逐字符

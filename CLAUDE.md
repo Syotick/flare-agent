@@ -38,13 +38,15 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 - 💡 **踩坑经验**：① GitHub Actions 的 YAML 里内联 `run: echo "TODO: xxx: yyy"` 这种「值含冒号+空格」必须用 block scalar（`run: |`），否则 workflow 解析失败（run 0 秒失败、workflow 名变文件路径）。② 分支保护的 required status check context 必须与 GitHub 实际生成的 check-run 名称一致——本项目是 `Required Status Gate`（不是 `CI / Required Status Gate`），名称不匹配会导致 PR mergeStateStatus=BLOCKED。③ gitleaks-action@v2 在 PR 模式需要 workflow `permissions: pull-requests: read`，否则 403。
 - **开发规范（强制）**：docs/engineering/01-development-standards.md（分支/提交/评审/测试/CI-CD/发布/SRE/安全）
 - **代码审查（2026-08-27 起）**：首轮审查记录 docs/engineering/03-code-review-r1.md（18 项意见已处置，8 项复查清单待下轮核对）；后续每轮审查结果都归档到 engineering/
-- 当前阶段：M0 完成 + 需求已确认（技术栈/形态/沙箱），进入 M1 设计评审 / M2 开发准备
+- **M2 代码结构（2026-08-27）**：services/ 已开工——共享库 flare_common(config/logging/telemetry/errors) + agent_runtime(app工厂+骨架) + tools_gateway(ToolRegistry+echo, async ToolResult+jsonschema 校验) + model_gateway(ModelProvider抽象+mock) + rag/sandbox 占位；pip install -e . 可安装；pytest 14 全绿，ruff/black 干净
+- 当前阶段：**M2 开发中**（M0/M1 完成；M2-4a 工具地基 + 首轮审查处置完成；下一步 M2-4b ReAct 核心循环）
 
 ## 4. 已做决策（按时间倒序，最新在上）
 
 | 时间 | 决策 |
 | --- | --- |
-| 2026-08-27 | 仓库名 `flare-agent`（私有）；采用 monorepo 风格目录：docs + 未来 services/ 模块 |
+| 2026-08-27 | 仓库 flare-agent 已公开；monorepo：services/(flare_common 共享库 + agent_runtime/model_gateway/tools_gateway/rag/sandbox) + infra + eval + tests；模块化单体优先(ADR-0015)，可 pip install -e . |
+| 2026-08-27 | 共享库命名 flare_common（带命名空间、可独立安装），对齐按服务拆分演进（审查 D1） |
 | 2026-08-27 | 记忆体系：CLAUDE.md + AGENTS.md 双写；docs/ 已按分类重构：product(调研/需求/架构)/engineering(开发规范)/learning(面试)/adr/templates，入口 docs/README.md |
 | 2026-08-27 | 技术方向初选（待评审）：Agent 运行时主语言 **Python**（生态最强，LangGraph/CoAgents 等）；控制面可 TS |
 | 2026-08-27 | 对象存储定为**阿里云 OSS**；向量库候选 Milvus/Qdrant/pgvector（需求评审时定夺） |
@@ -68,8 +70,8 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 ## 6. 里程碑（详细版见 docs/product/requirements/01-development-requirements.md §6）
 
 - M0 项目准备（Git/仓库/文档/记忆）✅
-- M1 需求评审与架构评审（等用户）
-- M2 核心 Agent 引擎（agent loop + 工具系统 + 会话）
+- M1 需求与架构评审 ✅（ADR ×15、模块设计、压测方案、评审记录）
+- M2 核心 Agent 引擎（agent loop + 工具系统 + 会话）🔨 进行中：M2-4a 工具地基 ✅，M2-4b ReAct 核心循环 待做
 - M3 RAG 知识库 + 记忆体系
 - M4 多模型路由 + 推理服务 + 成本控制
 - M5 云原生部署（阿里云 ACK + OSS + 可观测）+ 压测
