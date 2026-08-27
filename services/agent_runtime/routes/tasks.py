@@ -44,6 +44,14 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
             )
         return task.to_dict()
 
+    @router.delete("/tasks/{task_id}", status_code=204)
+    async def delete_task(task_id: str) -> None:
+        if not manager.delete(task_id):
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"任务不存在: {task_id}"},
+            )
+
     @router.get("/tasks/{task_id}/stream")
     async def stream_task(task_id: str) -> StreamingResponse:
         task = manager.get(task_id)

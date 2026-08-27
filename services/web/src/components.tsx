@@ -113,42 +113,113 @@ export function renderItem(it: Item) {
   }
 }
 
-// 左侧边栏（历史任务 — 仿 DeepSeek 对话列表）
+// ===== 会话侧边栏（WorkBuddy 式：搜索 / 日期分组 / 切换 / 删除） =====
+
+function relTime(ts: number): string {
+  const ms = Date.now() - ts * 1000;
+  if (ms < 60000) return "刚刚";
+  if (ms < 3600000) return Math.floor(ms / 60000) + " 分钟前";
+  if (ms < 86400000) return Math.floor(ms / 3600000) + " 小时前";
+  const d = new Date(ts * 1000);
+  return d.getMonth() + 1 + "/" + d.getDate();
+}
+
+function groupByDate(tasks: TaskDetail[]): { label: string; items: TaskDetail[] }[] {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day = 86400000;
+  const buckets: [string, (t: TaskDetail) => boolean][] = [
+    ["今天", (t) => t.created_at >= start],
+    ["昨天", (t) => t.created_at >= start - day && t.created_at < start],
+    ["近 7 天", (t) => t.created_at >= start - 7 * day && t.created_at < start - day],
+    ["更早", (t) => t.created_at < start - 7 * day],
+  ];
+  const out: { label: string; items: TaskDetail[] }[] = [];
+  for (const [label, pred] of buckets) {
+    const items = tasks.filter(pred);
+    if (items.length > 0) out.push({ label, items });
+  }
+  return out;
+}
+
 export function Sidebar(props: {
   tasks: TaskDetail[];
   activeTaskId: string | null;
   onPick: (taskId: string) => void;
   onNew: () => void;
+  onDelete: (taskId: string) => void;
   open: boolean;
   onClose: () => void;
 }) {
-  const { tasks, activeTaskId, onPick, onNew, open, onClose } = props;
+  const { tasks, activeTaskId, onPick, onNew, onDelete, open, onClose } = props;
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? tasks.filter((t) => (t.task_input || "").toLowerCase().indexOf(q) >= 0)
+    : tasks;
+  const groups = groupByDate(filtered);
   return (
     <>
       {open && <div className="sidebar-overlay" onClick={onClose} />}
       <div className={"sidebar" + (open ? " open" : "")}>
         <div className="sidebar-header">
-          <button className="new-chat" onClick={onNew}>
-            ＋ 新对话
-          </button>
-          <button className="sidebar-close" onClick={onClose}>
+          <span className="sidebar-title">会话</span>
+          <button className="sidebar-close" onClick={onClose} title="关闭">
             ×
           </button>
         </div>
+        <div className="sidebar-actions">
+          <button className="new-chat" onClick={onNew}>
+            ＋ 新对话
+          </button>
+          <div className="sidebar-search">
+            <span className="search-ico">⌕</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="搜索会话…"
+            />
+            {query && (
+              <button className="search-clear" onClick={() => setQuery("")}>
+                ×
+              </button>
+            )}
+          </div>
+        </div>
         <div className="sidebar-list">
-          {tasks.length === 0 && <div className="sidebar-empty">还没有任务</div>}
-          {tasks.map((t) => (
-            <button
-              key={t.task_id}
-              className={"sidebar-item" + (t.task_id === activeTaskId ? " active" : "")}
-              onClick={() => onPick(t.task_id)}
-            >
-              <div className="si-title">{t.task_input}</div>
-              <div className="si-meta">
-                <span className={"si-dot " + t.status} />
-                {t.status}
-              </div>
-            </button>
+          {filtered.length === 0 && (
+            <div className="sidebar-empty">
+              {tasks.length === 0 ? "还没有会话，发起一个任务吧" : "没有匹配的会话"}
+            </div>
+          )}
+          {groups.map((g) => (
+            <div key={g.label} className="group">
+              <div className="group-label">{g.label}</div>
+              {g.items.map((t) => (
+                <div
+                  key={t.task_id}
+                  className={"sidebar-item" + (t.task_id === activeTaskId ? " active" : "")}
+                  onClick={() => onPick(t.task_id)}
+                >
+                  <div className="si-title">{t.task_input}</div>
+                  <div className="si-meta">
+                    <span className={"si-dot " + t.status} />
+                    <span className="si-status">{t.status}</span>
+                    <span className="si-time">{relTime(t.created_at)}</span>
+                    <button
+                      className="si-del"
+                      title="删除会话"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(t.task_id);
+                      }}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           ))}
         </div>
       </div>

@@ -148,6 +148,10 @@ class TaskManager:
     def get(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)
 
-    def recent(self, limit: int = 20) -> list[TaskRecord]:
+    def delete(self, task_id: str) -> bool:
+        """删除任务（会话管理）。运行中的任务仅从存储移除，后台协程照常收尾。"""
+        return self._tasks.pop(task_id, None) is not None
+
+    def recent(self, limit: int = 200) -> list[TaskRecord]:
         recs = sorted(self._tasks.values(), key=lambda t: t.created_at, reverse=True)
         return recs[:limit]

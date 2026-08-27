@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createTask, getTask, listTasks } from "./api";
+import { createTask, deleteTask, getTask, listTasks } from "./api";
 import { Composer, Sidebar, renderItem } from "./components";
 import type { Item } from "./types";
 
@@ -254,6 +254,25 @@ export default function App() {
       .catch(() => setRunning(false));
   };
 
+  const handleDelete = async (taskId: string) => {
+    try {
+      await deleteTask(taskId);
+      if (activeTaskId === taskId) {
+        // 删除当前会话 → 清空并回到新对话
+        setItems([]);
+        setActiveTaskId(null);
+        setRunning(false);
+        const url = new URL(window.location.href);
+        url.hash = "";
+        window.history.replaceState(null, "", url.toString());
+      }
+      refreshHistory();
+    } catch {
+      // 删除失败：静默，刷新列表保持一致
+      refreshHistory();
+    }
+  };
+
   const newChat = () => {
     setItems([]);
     setActiveTaskId(null);
@@ -280,6 +299,7 @@ export default function App() {
         activeTaskId={activeTaskId}
         onPick={pickTask}
         onNew={newChat}
+        onDelete={handleDelete}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

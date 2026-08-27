@@ -92,3 +92,15 @@ def test_empty_task_input_422() -> None:
     with TestClient(app) as client:
         resp = client.post("/v1/tasks", json={"task_input": ""})
     assert resp.status_code == 422
+
+
+def test_delete_task() -> None:
+    """会话管理：DELETE 移除任务，不存在则 404。"""
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        created = client.post("/v1/tasks", json={"task_input": "bye"}).json()
+        tid = created["task_id"]
+        assert client.get(f"/v1/tasks/{tid}").status_code == 200
+        assert client.delete(f"/v1/tasks/{tid}").status_code == 204
+        assert client.get(f"/v1/tasks/{tid}").status_code == 404
+        assert client.delete(f"/v1/tasks/{tid}").status_code == 404

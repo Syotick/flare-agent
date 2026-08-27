@@ -62,3 +62,13 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
 export async function listTasks(): Promise<TaskDetail[]> {
   return json<TaskDetail[]>(await fetch("/v1/tasks"));
 }
+
+export async function deleteTask(taskId: string): Promise<void> {
+  const resp = await fetch("/v1/tasks/" + taskId, { method: "DELETE" });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    const msg =
+      body?.detail?.message || "删除失败 (HTTP " + resp.status + ")";
+    throw new Error(msg);
+  }
+}
