@@ -16,11 +16,19 @@ from fastapi.responses import JSONResponse
 from agent_runtime.routes.kb import build_kb_router
 from agent_runtime.routes.memory import build_memory_router
 from agent_runtime.routes.tasks import build_tasks_router
+from agent_runtime.task_store import (
+    InMemoryTaskStore,
+    RedisTaskStore,
+    SqliteTaskStore,
+    TaskStore,
+)
 from agent_runtime.tasks import TaskManager
 from flare_common import __version__
 from flare_common.config import Settings, get_settings
 from flare_common.errors import FlareError
 from flare_common.logging import setup_logging
+from flare_common.otel import init_tracing
+from flare_common.tenant import TenantMiddleware
 from memory.mem_tools import build_memory_tools
 from memory.memory import MemoryManager
 from rag.kb_tools import build_kb_search_tool
@@ -54,6 +62,17 @@ async def _unhandled_error_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
+def _build_task_store(settings: Settings) -> TaskStore:
+    """按配置选择任务存储（M5）：memory|sqlite|redis；未知值 fail-fast。"""
+    if settings.task_store == "memory":
+        return InMemoryTaskStore()
+    if settings.task_store == "sqlite":
+        return SqliteTaskStore("data/tasks.sqlite3")
+    if settings.task_store == "redis":
+        return RedisTaskStore(settings.redis_url)
+    raise FlareError(f"未知 task_store: {settings.task_store!r}（应为 memory|sqlite|redis）")
+
+
 def create_app(
     settings: Settings | None = None,
     task_manager: TaskManager | None = None,
@@ -67,6 +86,8 @@ def create_app(
     """
     settings = settings or get_settings()
     setup_logging(settings.log_level)
+    # M5：OTel 埋点（无端点 no-op；有端点且缺 SDK/导出失败 -> fail-fast）
+    init_tracing(settings.app_name, settings.otel_endpoint or None)
 
     kb = knowledge_base
     mem = memory
@@ -80,7 +101,11 @@ def create_app(
         registry.register(build_kb_search_tool(kb))
         for tool in build_memory_tools(mem):
             registry.register(tool)
-        task_manager = TaskManager(registry=registry, memory=mem)
+        task_manager = TaskManager(
+            registry=registry,
+            memory=mem,
+            store=_build_task_store(settings),
+        )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -93,6 +118,7 @@ def create_app(
             await mem.close()
 
     app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan)
+    app.add_middleware(TenantMiddleware)  # M5：X-Tenant-Id -> contextvar
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

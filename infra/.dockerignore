@@ -1,0 +1,10 @@
+.git
+.github
+data
+tests
+docs
+web/node_modules
+__pycache__
+*.pyc
+*.sqlite3
+.env

@@ -28,9 +28,10 @@ async def test_sqlite_checkpoint_persists_across_savers(tmp_path) -> None:
 
 
 async def test_non_dev_env_fails_fast(monkeypatch) -> None:
-    """F4: 非 dev 且未接 Postgres → 显式报错，绝不静默回退内存。"""
+    """F4（M5）：生产接 AsyncPostgresSaver；无 PG 可连 → CheckpointUnavailableError fail-fast。"""
+    from agent_runtime.checkpoint import CheckpointUnavailableError
     from flare_common.config import Settings
 
     monkeypatch.setattr("agent_runtime.checkpoint.get_settings", lambda: Settings(env="prod"))
-    with pytest.raises(NotImplementedError, match="拒绝静默降级"):
+    with pytest.raises(CheckpointUnavailableError):
         await get_checkpointer()

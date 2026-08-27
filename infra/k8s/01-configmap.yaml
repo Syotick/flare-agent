@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flare-agent-config
+  namespace: flare-agent
+data:
+  FLARE_ENV: "prod"
+  FLARE_LOG_LEVEL: "INFO"
+  FLARE_MODEL_PROVIDER: "openai"
+  FLARE_MODEL_BASE_URL: "https://api.deepseek.com/v1"
+  FLARE_MODEL_NAME: "deepseek-chat"
+  FLARE_TASK_STORE: "redis"
+  FLARE_OTEL_ENDPOINT: "http://flare-otel-collector:4318"
+  FLARE_CORS_ORIGINS: '["https://app.example.com"]'

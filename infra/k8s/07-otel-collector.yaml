@@ -1,0 +1,80 @@
+# 最小 OTel Collector：接收应用 OTLP HTTP，debug 落盘 + 转发到阿里云 ARMS（占位出口）
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flare-otel-config
+  namespace: flare-agent
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch: {}
+    exporters:
+      debug:
+        verbosity: basic
+      otlphttp:
+        endpoint: http://<arms-endpoint>/v1/traces
+        headers:
+          Authentication: "<token>"
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug, otlphttp]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flare-otel-collector
+  namespace: flare-agent
+  labels:
+    app: flare-otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flare-otel-collector
+  template:
+    metadata:
+      labels:
+        app: flare-otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.108.0
+          args: ["--config=/etc/otel/config.yaml"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otel
+          ports:
+            - name: otlp-http
+              containerPort: 4318
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: flare-otel-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flare-otel-collector
+  namespace: flare-agent
+spec:
+  selector:
+    app: flare-otel-collector
+  ports:
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318

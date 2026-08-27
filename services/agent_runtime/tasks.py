@@ -18,6 +18,8 @@ from typing import Any
 
 from agent_runtime.checkpoint import get_checkpointer
 from agent_runtime.graph import build_react_agent
+from agent_runtime.task_store import InMemoryTaskStore, TaskStore
+from flare_common.tenant import get_tenant_id
 from model_gateway.mock import MockModelProvider
 from tools_gateway.builtin import create_default_registry
 
@@ -44,6 +46,7 @@ class TaskRecord:
     events: list[dict] = field(default_factory=list)
     result: dict[str, Any] | None = None
     error: str | None = None
+    tenant_id: str = "default"  # M5：多租户隔离边界
 
     @property
     def done(self) -> bool:
@@ -60,6 +63,7 @@ class TaskRecord:
             "event_count": len(self.events),
             "result": self.result,
             "error": self.error,
+            "tenant_id": self.tenant_id,
         }
 
 
@@ -73,12 +77,14 @@ class TaskManager:
         llm=None,
         checkpointer_factory=None,
         memory=None,
+        store=None,
     ) -> None:
         self._registry = registry or create_default_registry()
         self._llm = llm or MockModelProvider()
         self._checkpointer_factory = checkpointer_factory or get_checkpointer
         self._memory = memory  # M3b 分层记忆（None 则不做上下文注入）
-        self._tasks: dict[str, TaskRecord] = {}
+        self._store: TaskStore = store or InMemoryTaskStore()  # M5：持久化存储
+        self._tasks: dict[str, TaskRecord] = {}  # 进程内缓存（同步读 + 持久化写穿）
 
     async def create(
         self,
@@ -86,6 +92,7 @@ class TaskManager:
         *,
         thread_id: str | None = None,
         max_steps: int = 5,
+        tenant_id: str | None = None,
     ) -> TaskRecord:
         """登记任务并后台执行，立即返回（L1：请求不被任务耗时阻塞）。"""
         task = TaskRecord(
@@ -93,8 +100,10 @@ class TaskManager:
             thread_id=thread_id or uuid.uuid4().hex[:12],
             task_input=task_input,
             max_steps=max_steps,
+            tenant_id=tenant_id or get_tenant_id(),
         )
         self._tasks[task.task_id] = task
+        await self._store.create(task)
         asyncio.create_task(self._execute(task))
         return task
 
@@ -128,6 +137,7 @@ class TaskManager:
 
     async def _execute(self, task: TaskRecord) -> None:
         task.status = "running"
+        await self._save(task)
         try:
             checkpointer = await self._checkpointer_factory()
             memory_context = None
@@ -151,6 +161,7 @@ class TaskManager:
                 stream_mode="updates",
             ):
                 task.events.append({"type": "step", "node": list(update.keys()), "data": update})
+                await self._save(task)
             final = await agent.aget_state({"configurable": {"thread_id": task.thread_id}})
             values = final.values
             task.result = {
@@ -164,41 +175,61 @@ class TaskManager:
             logger.exception("task %s failed: %s", task.task_id, exc)
             task.status = "failed"
             task.error = str(exc)
+        finally:
+            await self._save(task)
+
+    async def _save(self, task: TaskRecord) -> None:
+        """写穿持久化 + 更新进程内缓存（M5：多实例/重启可恢复的底座）。
+
+        仅当任务仍被登记时更新缓存：避免后台协程把已删除的任务"复活"回内存。
+        """
+        if task.task_id in self._tasks:
+            self._tasks[task.task_id] = task
+        await self._store.save(task)
 
     async def stream(self, task: TaskRecord) -> AsyncIterator[str]:
-        """轮询 events 实时推送；终态后补 result 并结束。多客户端各自带索引，互不干扰。"""
+        """轮询 events 实时推送；终态后补 result 并结束。多客户端各自带索引，互不干扰。
+
+        M5：每轮从 store 读取最新记录（InMemory 返回同一对象；SQLite/Redis 重新加载），
+        保证持久化存储下也能正确流式。
+        """
         idx = 0
         while True:
-            if idx < len(task.events):
-                ev = task.events[idx]
+            cur = await self._store.get(task.task_id) or task
+            if idx < len(cur.events):
+                ev = cur.events[idx]
                 idx += 1
                 yield (
                     "event: step\n"
                     f"data: {json.dumps(ev, ensure_ascii=False, default=_json_default)}\n\n"
                 )
                 continue
-            if task.done:
+            if cur.done:
                 break
-            await asyncio.sleep(0.02)
+            await asyncio.sleep(0.05)
         payload = json.dumps(
-            {"result": task.result, "status": task.status, "error": task.error},
+            {"result": cur.result, "status": cur.status, "error": cur.error},
             ensure_ascii=False,
             default=_json_default,
         )
         yield "event: result\n" f"data: {payload}\n\n"
 
     async def close(self) -> None:
-        """关闭持有的资源（M4：模型 HTTP 客户端等）。无 close 的实现自动跳过。"""
+        """关闭持有的资源（M4/M5：模型 HTTP 客户端、任务存储连接等）。无实现自动跳过。"""
         close = getattr(self._llm, "close", None)
         if close is not None:
             await close()
+        await self._store.close()
 
     def get(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)
 
-    def delete(self, task_id: str) -> bool:
+    async def delete(self, task_id: str) -> bool:
         """删除任务（会话管理）。运行中的任务仅从存储移除，后台协程照常收尾。"""
-        return self._tasks.pop(task_id, None) is not None
+        removed = self._tasks.pop(task_id, None) is not None
+        if removed:
+            await self._store.delete(task_id)
+        return removed
 
     def recent(self, limit: int = 200) -> list[TaskRecord]:
         recs = sorted(self._tasks.values(), key=lambda t: t.created_at, reverse=True)

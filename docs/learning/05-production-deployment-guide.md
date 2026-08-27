@@ -60,23 +60,37 @@
   - kb/memory 向量：SqliteVectorStore → PgVectorStore——同一 VectorStore 协议；
     **同一 PG 实例、分表**（kb_chunks / memory_chunks，schema 相同：doc_id/chunk_index/text/vector）；
   - facts 事实表：SQLite → PG 同结构（project_id/key/value/updated_at，PK(project_id,key)）；
-  - checkpointer：SQLite → AsyncPostgresSaver（checkpoint.py 已预留生产分支，非 dev fail-fast）；
-  - 任务/事件：进程内 dict → Redis（tasks.py 标注 M5 迁移点）；
+  - checkpointer：SQLite → AsyncPostgresSaver（checkpoint.py 生产分支已实现，非 dev fail-fast）；
+  - 任务/事件：进程内 dict → SqliteTaskStore/RedisTaskStore（task_store.py 已实现，memory|sqlite|redis 三档）；
   - 原始文档/多模态：OSS（FLARE_OBJECT_STORE_* 已预留，docker-compose 用 MinIO 模拟）。
 - 迁移纪律：先双写对账、再灰度切换、数据校验脚本验证 chunk 数与检索一致性；切完保留旧库 7 天兜底。
+
+### 4.1 M5 代码层交付（已就绪，待服务器部署）
+
+> 服务器到位后：docker build -f infra/Dockerfile → 推 ACR → kubectl apply -f infra/k8s/。以下代码全部本地可测。
+
+- infra/Dockerfile + .dockerignore：多副本运行时镜像（requirements + 包 + OTel/asyncpg/redis 生产依赖）；
+- infra/k8s/：01-configmap → 02-secret（占位，生产用 ExternalSecrets/KMS）→ 03-deployment（双副本+探针+资源）
+  → 04-service → 05-hpa（CPU70%，2~10 副本）→ 06-ingress → 07-otel-collector（OTLP→ARMS 占位）；
+- 多租户：X-Tenant-Id 头 → TenantMiddleware → contextvar；任务带 tenant_id（路由默认读取）；
+- OTel：flare_common/otel.py，FLARE_OTEL_ENDPOINT 为空则 no-op、有端点且缺 SDK 则 fail-fast；
+- PgVectorStore（rag/pgstore.py）：同协议实现，pgvector HNSW 索引 + 余弦检索，连不上 PG 503；
+- 双写对账：scripts/reconcile.py --src <sqlite> --dst <pg dsn> [--fix]，缺什么补什么、差异可审计。
 
 ## 5. 可观测性（OTel：logs / traces / metrics）
 
 - 真理：上线 ≠ 能用。看不到链路就不算可运维；日志要结构化、请求要有 trace_id、指标要有基线。
 - 三信号落地（阿里云）：
-  - 日志：结构化 JSON 日志 → SLS（已有 flare_common.logging 结构化 ✅，OTel 导出 ⏳）；
+  - 日志：结构化 JSON 日志 → SLS（已有 flare_common.logging 结构化 ✅）；
+  - 链路：Agent 轮次/工具/LLM 调用的 trace → ARMS（flare_common/otel.py ✅：FLARE_OTEL_ENDPOINT 指向 Collector/ARMS，空则 no-op）；
   - 链路：请求 → Agent 轮次 → 工具调用 → LLM 调用的 trace → ARMS/OTel Collector；
   - 指标：QPS / P99 / 错误率 / 工具失败率 / 并发任务数 / 检索耗时 / LLM 调用数与配额余量 → Prometheus + 云监控。
 - 关键告警指标基线（示例）：P95 首 token < 1s、任务完成率 > 99.5%、LLM API 配额余量 < 20% 告警。
 
 ## 6. 多租户与安全
 
-- 真理：多租户 = 数据隔离 + 配额 + 审计。先按 project_id 隔离（已有 ✅），再上 tenant_id 维度（M5）。
+- 真理：多租户 = 数据隔离 + 配额 + 审计。project_id 隔离已有 ✅；tenant_id 维度已代码就绪 ✅
+  （X-Tenant-Id → contextvar → 任务/审计带租户；DB 分表随 PG 迁移落地）。
 - 安全清单：CORS 白名单（勿 *）、请求限流（按 tenant/IP）、敏感信息脱敏（日志里不打印 API Key/事实值全文）、
   Secret 托管、全链路 HTTPS（ALB 终结）、依赖漏洞扫描（CI 里 pip-audit 级别）。
 
@@ -100,10 +114,10 @@
 
 ## 9. 上线检查清单
 
-- [ ] wheel 安装后 `import memory` 通过（pyproject 含 memory*）
-- [ ] FLARE_ENV=prod 启动无静默降级（fail-fast 生效）
-- [ ] PG（pgvector）/ Redis / OSS 连通且数据校验脚本通过
-- [ ] OTel 三信号（日志/链路/指标）已上报 SLS/ARMS/Prometheus
+- [x] wheel 安装后 `import memory` 通过（pyproject 含 memory*）
+- [x] FLARE_ENV=prod 启动无静默降级（fail-fast 生效；checkpoint/向量/任务存储三处均有 503 守卫）
+- [ ] PG（pgvector）/ Redis / OSS 连通且 scripts/reconcile.py 对账通过
+- [x] OTel 导出代码就绪（FLARE_OTEL_ENDPOINT 生效，空则 no-op）；待上报 SLS/ARMS/Prometheus
 - [ ] /health 探针通过，多副本滚动更新演练 OK
 - [ ] CORS 白名单 / HTTPS / Secret 就位，无明文密钥
 - [ ] 压测达到 SLO 基线（含 50% 余量）
@@ -111,7 +125,8 @@
 
 ## 10. 下一步（M5/M6 路线）
 
-- **M5 云原生上线**：Dockerfile + ACK manifests + OTel 导出 + 多租户（tenant_id）+ Redis/DB 任务存储 +
-  PgVectorStore/AsyncPostgresSaver 真实接入 + 迁移双写对账。
+- **M5 云原生上线**：✅ 代码层全部就绪（infra/Dockerfile + infra/k8s/ + OTel 导出 + 多租户 tenant_id +
+  Redis/SQLite 任务存储 + PgVectorStore + AsyncPostgresSaver + scripts/reconcile.py 双写对账，103 测试全绿）；
+  ⏳ 剩真上云动作（买服务器 → docker build 推 ACR → kubectl apply → 对账/压测）。
 - **M6 生产运营**：SLO/error budget 落地、告警分级值班、容量压测与扩缩容策略、季度演练。
 - 建议：M3c（RAG 评测/混合检索/重排）先做——把检索质量量化，上线前才有"多好"的基线。

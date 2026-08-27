@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     model_base_url: str = "http://localhost:9001/v1"  # 本地 vLLM 默认端口
     model_name: str = "gpt-4o-mini"
 
+    # M5：任务存储（memory|sqlite|redis）；OTel 导出端点（空=不启用）
+    task_store: str = "memory"
+    otel_endpoint: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

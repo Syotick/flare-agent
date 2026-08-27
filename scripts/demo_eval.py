@@ -35,7 +35,9 @@ async def main() -> None:
     ragas = await run_ragas(kb, ds.cases, judge=CoverageProxyJudge(), k=5)
     agg = ragas["aggregate"]
     print("\n== RAGAS 式判定 (CoverageProxyJudge 开发代理) ==")
-    print(f"  faithfulness={agg.get('faithfulness')}  answer_relevance={agg.get('answer_relevance')}")
+    print(
+        f"  faithfulness={agg.get('faithfulness')}  answer_relevance={agg.get('answer_relevance')}"
+    )
     await kb.close()
     if os.path.exists(DB):
         os.remove(DB)

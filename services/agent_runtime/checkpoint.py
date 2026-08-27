@@ -16,6 +16,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from flare_common.config import get_settings
+from flare_common.errors import FlareError
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,35 @@ async def get_checkpointer():
             logger.warning("SQLite checkpoint 初始化失败，降级为内存（仅本次进程）: %s", exc)
             _saver_cache = MemorySaver()
             return _saver_cache
-    raise NotImplementedError(
-        "生产环境必须接入 Postgres checkpointer（AsyncPostgresSaver，M5）；"
-        "当前无持久化实现，拒绝静默降级"
-    )
+    # M5：生产接 PostgreSQL AsyncPostgresSaver（同库承载 checkpoints 表）
+    _saver_cache = await _create_pg_saver(settings.database_url)
+    return _saver_cache
+
+
+class CheckpointUnavailableError(FlareError):
+    """生产 checkpoint 依赖缺失/连不上 PG -> fail-fast（绝不静默降级）。"""
+
+    code = "CHECKPOINT_UNAVAILABLE"
+    status_code = 503
+
+
+async def _create_pg_saver(dsn: str):
+    """创建长生命周期 AsyncPostgresSaver（守卫式）：缺依赖/连不上 -> CheckpointUnavailableError。
+
+    注意：from_conn_string 是 async 上下文管理器（退出即断连），
+    进程级单例需自建 asyncpg 长连接传给构造函数。
+    """
+    try:
+        import asyncpg
+        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    except ImportError as exc:  # noqa: PERF203 - 仅生产路径触发
+        raise CheckpointUnavailableError(
+            f"生产环境需安装 asyncpg 与 langgraph-checkpoint-postgres：{exc}"
+        ) from exc
+    try:
+        conn = await asyncpg.connect(dsn)
+        saver = AsyncPostgresSaver(conn=conn)
+        await saver.setup()
+    except Exception as exc:  # noqa: BLE001 - 连接失败统一转可用性错误
+        raise CheckpointUnavailableError(f"无法连接 PostgreSQL checkpointer: {exc}") from exc
+    return saver
