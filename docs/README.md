@@ -49,6 +49,9 @@
 | [03-memory-and-context-engineering.md](./learning/03-memory-and-context-engineering.md) | draft | 分层记忆与上下文工程（实践 + 真理），FR-4 配套 |
 | [04-advanced-development-guide.md](./learning/04-advanced-development-guide.md) | draft | 进阶开发指南（分层/加工具/加 API/接模型/换存储/测试纪律），开发部分 |
 | [05-production-deployment-guide.md](./learning/05-production-deployment-guide.md) | draft | 生产部署指南（阿里云 ACK/OSS/PG/Redis/OTel/多租户/容量/SLO/回滚），部署部分 |
+| [06-functional-architecture.md](./learning/06-functional-architecture.md) | draft | 功能架构（功能域地图/功能清单/核心链路/依赖/NFR），实践+真理 |
+| [07-business-architecture.md](./learning/07-business-architecture.md) | draft | 业务架构（价值主张/能力地图/业务流程/对象/角色/多租户/运营），实践+真理 |
+| [08-technical-architecture.md](./learning/08-technical-architecture.md) | draft | 技术架构（选型/分层/运行机制/数据/集成/部署/安全/权衡），实践+真理 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |
