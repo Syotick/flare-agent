@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "flare-agent"
 version = "0.1.0"
@@ -5,10 +9,7 @@ description = "企业级 AI Agent 平台（模块化单体，services/ 为可拆
 requires-python = ">=3.12"
 authors = [{ name = "Syotick" }]
 license = { text = "MIT" }
-# 依赖统一放 requirements.txt（CI pip-audit / 安装以此为单一事实来源）
-
-[project.optional-dependencies]
-dev = ["-r requirements-dev.txt"]
+# 依赖统一放 requirements.txt / requirements-dev.txt（CI 安装与 pip-audit 以此为单一事实来源）
 
 [tool.setuptools.packages.find]
 where = ["services"]

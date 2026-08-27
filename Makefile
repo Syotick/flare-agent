@@ -10,10 +10,12 @@ setup: ## 首次：创建 conda 环境并安装依赖
 	conda create -n $(CONDA_ENV) python=3.12 -y
 	$(PY) -m pip install -U pip
 	$(PY) -m pip install -r requirements-dev.txt
+	$(PY) -m pip install -e .   # 可编辑安装：让 importlib.metadata 读到版本等元数据
 
 install: ## 环境已存在：仅安装/更新依赖
 	$(PY) -m pip install -U pip
 	$(PY) -m pip install -r requirements-dev.txt
+	$(PY) -m pip install -e .
 
 dev: ## 启动 Agent Runtime（热重载，端口 8000）
 	PYTHONPATH=services $(PY) -m uvicorn agent_runtime.main:app --reload --port 8000

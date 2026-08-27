@@ -1,11 +1,14 @@
-"""冒烟测试：配置加载 + Agent Runtime 系统端点。"""
+"""冒烟测试：配置加载 + Agent Runtime 应用工厂 + 错误契约。"""
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
-from agent_runtime.main import app
+from agent_runtime.app import create_app
 from flare_common.config import Settings
+from flare_common.errors import NotFoundError
 
 
 def test_settings_defaults() -> None:
@@ -21,18 +24,40 @@ def test_settings_from_env() -> None:
     assert s.model_provider == "deepseek"
 
 
-def test_health() -> None:
+def test_settings_reject_unknown_env() -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, unknown_field="x")
+
+
+def test_health_with_injected_settings() -> None:
+    app = create_app(Settings(_env_file=None, env="test"))
     with TestClient(app) as client:
         resp = client.get("/health")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body["status"] == "ok"
+    assert resp.json() == {"status": "ok", "env": "test"}
 
 
 def test_version() -> None:
+    app = create_app()
     with TestClient(app) as client:
         resp = client.get("/version")
     assert resp.status_code == 200
     body = resp.json()
     assert body["name"] == "flare-agent"
-    assert body["version"] == "0.1.0"
+    assert isinstance(body["version"], str) and body["version"]
+
+
+def test_flare_error_response_shape() -> None:
+    app = create_app()
+
+    @app.get("/_raise")
+    async def raise_not_found() -> None:
+        raise NotFoundError("no such thing")
+
+    with TestClient(app) as client:
+        resp = client.get("/_raise")
+    assert resp.status_code == 404
+    body = resp.json()
+    assert body["code"] == "NOT_FOUND"
+    assert body["message"] == "no such thing"
+    assert "request_id" in body
