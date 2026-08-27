@@ -25,6 +25,13 @@ class VectorStoreUnavailableError(FlareError):
     status_code = 503
 
 
+class VectorDimError(FlareError):
+    """查询向量与存量维度不一致（如切换了嵌入模型）——清晰报错而非 ValueError 崩掉。"""
+
+    code = "VECTOR_DIM_MISMATCH"
+    status_code = 422
+
+
 @dataclass
 class ChunkRecord:
     doc_id: str
@@ -96,8 +103,10 @@ class SqliteVectorStore:
                 "INSERT OR REPLACE INTO documents(doc_id, title, created_at) VALUES(?,?,?)",
                 (doc_id, title, time.time()),
             )
+            # R2：重复入库先清旧块再插，避免旧的高序号 chunk 残留仍被检索
+            await db.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
             await db.executemany(
-                "INSERT OR REPLACE INTO chunks(doc_id, chunk_index, text, vector) VALUES(?,?,?,?)",
+                "INSERT INTO chunks(doc_id, chunk_index, text, vector) VALUES(?,?,?,?)",
                 [(c.doc_id, c.chunk_index, c.text, json.dumps(c.vector)) for c in chunks],
             )
             await db.commit()
@@ -112,6 +121,10 @@ class SqliteVectorStore:
         scored: list[SearchHit] = []
         for row in rows:
             v = json.loads(row["vector"])
+            if len(v) != len(vector):  # R4：维度不一致（如换了嵌入模型）要清晰报错
+                raise VectorDimError(
+                    f"向量维度不匹配: 存量 {len(v)} vs 查询 {len(vector)}（可能切换了嵌入模型）"
+                )
             scored.append(
                 SearchHit(
                     doc_id=row["doc_id"],

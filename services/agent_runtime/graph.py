@@ -43,6 +43,20 @@ def _tool_message(name: str, result: ToolResult) -> LLMMessage:
     return LLMMessage(role="tool", content=f"[{name}] {content}")
 
 
+def _build_tool_schema(registry: ToolRegistry) -> str:
+    """把工具 schema（name/description/parameters）组装成 system 提示（R1）。
+
+    真实模型必须"看得见"工具才会自主调用——只注册进 registry 不够，
+    首轮必须把工具清单注入对话（system 消息），否则模型永远不知道有 kb_search/mem_recall。
+    """
+    lines = ["你是 Flare Agent，一个可调用工具完成任务的 AI。可用工具如下："]
+    for tool in registry.list():
+        lines.append(f"- {tool.name}: {tool.description}")
+        lines.append(f"  参数(JSON Schema): {json.dumps(tool.parameters, ensure_ascii=False)}")
+    lines.append("需要工具时按上述 schema 输出决策；否则直接回答。")
+    return chr(10).join(lines)
+
+
 def _parse_decision(content: str) -> ToolCallDecision:
     """解析模型决策为共享契约 ToolCallDecision（F3）。
 
@@ -83,6 +97,8 @@ def build_react_agent(
             }
         messages = list(state.get("messages", []))
         if not messages:
+            # R1：首轮注入工具 schema（system 消息），真实模型才能看到并自主调用工具
+            messages.append(LLMMessage(role="system", content=_build_tool_schema(registry)))
             content = state.get("task_input", "")
             if memory_context:
                 content = memory_context + "\n\n" + content

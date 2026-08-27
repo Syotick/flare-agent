@@ -10,7 +10,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from agent_runtime.app import create_app
 from agent_runtime.tasks import TaskManager
-from flare_common.errors import ValidationError
+from flare_common.errors import FlareError, ValidationError
 from model_gateway.mock import MockModelProvider
 from model_gateway.providers import ToolCall, ToolCallDecision
 from rag.chunking import split_text
@@ -72,6 +72,24 @@ async def test_hash_embedder_ranks_relevant_first() -> None:
     assert score_r > score_u
 
 
+async def test_hash_embedder_is_literal_not_semantic() -> None:
+    """R6：暴露边界——HashEmbedder 是字面 n-gram 相似，不是语义。
+
+    同义改写但零字面重合时得分应接近 0；只有逐字重合才高分。
+    这让"语义检索 OK"的错觉现形：换真实嵌入模型（M3c/DashScope）才能谈语义召回。
+    """
+    emb = HashEmbedder()
+    stored = "今天天气不错适合跑步"
+    literal_q = "今天天气不错适合跑步"  # 逐字重合
+    synonym_q = "going for a run in good weather"  # 语义相关但零字面重合
+    s, lit, syn = await emb.embed([stored, literal_q, synonym_q])
+    sim_lit = sum(a * b for a, b in zip(s, lit, strict=True))
+    sim_syn = sum(a * b for a, b in zip(s, syn, strict=True))
+    assert sim_lit > 0.9  # 逐字重合接近满分
+    assert sim_syn < 0.5  # 无字面重合时显著偏低（暴露"非语义"边界）
+    assert sim_lit > 5 * sim_syn
+
+
 # ---------- 存储 ----------
 
 
@@ -94,6 +112,42 @@ async def test_sqlite_store_add_search_delete() -> None:
     assert await store.delete("d1") is True
     assert await store.delete("d1") is False
     assert await store.list_documents() == []
+    await store.close()
+
+
+async def test_store_add_overwrites_stale_chunks() -> None:
+    """R2：重复入库必须清除旧 chunk，不能残留仍可检索。"""
+    store = SqliteVectorStore(":memory:")
+    await store.add(
+        "d1",
+        "doc",
+        [
+            ChunkRecord(doc_id="d1", chunk_index=0, text="alpha", vector=[1.0, 0.0, 0.0]),
+            ChunkRecord(doc_id="d1", chunk_index=1, text="beta", vector=[0.0, 1.0, 0.0]),
+            ChunkRecord(doc_id="d1", chunk_index=2, text="gamma", vector=[0.0, 0.0, 1.0]),
+        ],
+    )
+    # 重复入库仅 1 块 -> 旧 beta/gamma 必须被清除（唯一剩余 chunk 应为 alpha）
+    await store.add(
+        "d1", "doc", [ChunkRecord(doc_id="d1", chunk_index=0, text="alpha", vector=[1.0, 0.0, 0.0])]
+    )
+    hits_beta = await store.search([0.0, 1.0, 0.0], k=5)
+    assert len(hits_beta) == 1 and hits_beta[0].text == "alpha"  # 旧 beta 已清除
+    all_texts = [h.text for h in await store.search([0.0, 0.0, 1.0], k=5)]
+    assert "beta" not in all_texts and "gamma" not in all_texts
+    await store.close()
+
+
+async def test_store_search_dimension_mismatch_raises() -> None:
+    """R4：查询向量与存量维度不一致 -> 清晰报错（VectorDimError），而非 ValueError 崩掉。"""
+    store = SqliteVectorStore(":memory:")
+    await store.add(
+        "d1", "doc", [ChunkRecord(doc_id="d1", chunk_index=0, text="a", vector=[1.0, 0.0])]
+    )
+    with pytest.raises(FlareError) as exc:
+        await store.search([1.0, 0.0, 0.0, 0.0], k=1)
+    assert exc.value.code == "VECTOR_DIM_MISMATCH"
+    assert "维度" in exc.value.message
     await store.close()
 
 
@@ -156,6 +210,16 @@ def test_kb_api_ingest_search_delete() -> None:
         # 参数校验 422
         bad = client.post("/v1/kb/documents", json={"title": "", "content": "x"})
         assert bad.status_code == 422
+        # R4：k 越界（>20）-> 422
+        assert client.get("/v1/kb/search", params={"q": "x", "k": 999}).status_code == 422
+        # R3：content 超上限 -> 422
+        long_doc = "x" * 100_001
+        assert (
+            client.post(
+                "/v1/kb/documents", json={"title": "too-long", "content": long_doc}
+            ).status_code
+            == 422
+        )
 
 
 # ---------- Agent 集成 ----------
@@ -193,6 +257,59 @@ def test_agent_uses_kb_search_tool() -> None:
     manager = TaskManager(
         registry=registry,
         llm=_KbSearchProvider("阿里云部署"),
+        checkpointer_factory=_mem_saver,
+    )
+    with TestClient(create_app(task_manager=manager, knowledge_base=kb)) as client:
+        content = "在阿里云上部署应用，需要配置 ACK 集群与负载均衡。"
+        ing = client.post("/v1/kb/documents", json={"title": "部署指南", "content": content})
+        assert ing.status_code == 201, ing.text
+
+        resp = client.post("/v1/tasks", json={"task_input": "查一下部署知识", "max_steps": 3})
+        assert resp.status_code == 202
+        task_id = resp.json()["task_id"]
+
+        deadline = time.time() + 5.0
+        body = None
+        while time.time() < deadline:
+            body = client.get(f"/v1/tasks/{task_id}").json()
+            if body["status"] in TERMINAL:
+                break
+            time.sleep(0.02)
+        assert body is not None and body["status"] == "completed", body
+        output = (body.get("result") or {}).get("output") or ""
+        assert "知识库" in output or "部署指南" in output
+
+
+class _ToolAwareProvider(MockModelProvider):
+    """R1：会读 system 提示的假模型——只有看到 kb_search 工具描述才决定调用。
+
+    证明"工具 schema 注入 system 消息"这一前提成立：真实模型能据此自主调用。
+    """
+
+    def __init__(self, query: str) -> None:
+        self._query = query
+        self._called = False
+
+    def _decide(self, messages) -> ToolCallDecision:
+        system = next((m.content for m in messages if m.role == "system"), "")
+        assert "kb_search" in system, "system 提示里必须暴露工具 schema（R1）"
+        assert "在团队知识库中检索" in system
+        if self._called:
+            last = messages[-1] if messages else None
+            return ToolCallDecision(action="final", answer=f"完成: {last.content}")
+        self._called = True
+        tool = ToolCall(name="kb_search", args={"query": self._query})
+        return ToolCallDecision(action="call_tool", tool=tool)
+
+
+def test_agent_autonomously_calls_kb_via_system_schema() -> None:
+    """R1 端到端：模型基于 system 提示里的工具 schema 自主决定调 kb_search。"""
+    kb = KnowledgeBase()
+    registry = create_default_registry()
+    registry.register(build_kb_search_tool(kb))
+    manager = TaskManager(
+        registry=registry,
+        llm=_ToolAwareProvider("部署"),
         checkpointer_factory=_mem_saver,
     )
     with TestClient(create_app(task_manager=manager, knowledge_base=kb)) as client:

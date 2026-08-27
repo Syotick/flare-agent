@@ -13,6 +13,8 @@
   可溯源（引用来源）、可更新（换库即换知识）、可控（按库/文档粒度管权限）。
 - 实践：Flare Agent 把知识检索做成 Agent 的**一个工具 kb_search**——模型自主决定何时查库，
   而不是每条消息都强制检索。这是 Agent 化 RAG（自主 RAG）区别于固定 RAG 管线的关键。
+  **前提（R1）**：工具必须"看得见"才谈得上自主——首轮把 registry 的工具 schema（name/description/
+  parameters）组装成 system 消息注入对话（graph._build_tool_schema），真实模型据此自主决定调用。
 
 ## 2. 入库管线（Ingestion Pipeline）五大步骤
 
@@ -54,11 +56,18 @@
 - **确定性嵌入**：Python 内置 hash() 对 str 每次进程加盐，跨进程结果不稳定；用 zlib.crc32 保证可复现、可回归。
 - **fail-fast**：生产嵌入/向量库未配置时不静默降级，直接抛带错误码的 FlareError（如 EMBEDDING_NOT_CONFIGURED），
   避免把错误数据灌进知识库。
+- **HashEmbedder 是字面 n-gram 相似，不是语义（R6）**：同义词/改写句式召回会很差，仅管线/测试/开发用；
+  生产必须换真实嵌入模型（DashScopeEmbedder，M3c 接入）。边界测试见 test_rag.py::test_hash_embedder_is_literal_not_semantic。
+- **边界校验（R3/R4）**：content 有 max_length 上限（防 DoS）；k 限 1..20；检索维度不一致抛 VECTOR_DIM_MISMATCH
+  而非 ValueError。重复入库先删旧 chunk 再插（R2），不残留过期片段。
+- **工具观察截断（R7 低）**：kb_search 给模型的文本截到 300 字符，artifacts 带全量 chunk——留意即可。
 
 ## 6. 验收
 
 - [ ] POST /v1/kb/documents 入库 → GET /v1/kb/search?q= 命中正确文档且带 title/score 溯源
 - [ ] DELETE /v1/kb/documents/{id} 删除后不再命中
-- [ ] Agent 对话能自主调用 kb_search 并基于来源作答（tests/unit/test_rag.py::test_agent_uses_kb_search_tool）
-- [ ] pytest 全绿（42 passed）
-- 下一步：M3c RAG 评测（RAGAS：召回/忠实度/答案相关性）+ 混合检索/重排；M3b 分层记忆（会话短期→项目长期→向量记忆）。
+- [ ] 重复入库覆盖（旧 chunk 不残留）——test_rag.py::test_store_add_overwrites_stale_chunks
+- [ ] content/k 边界校验 + 维度不一致清晰报错——test_rag.py 对应用例
+- [ ] 工具 schema 经 system 提示注入，模型能据此自主调用 kb_search——test_rag.py::test_agent_autonomously_calls_kb_via_system_schema（R1）
+- [ ] pytest 全绿（56 passed，Round4 修复后）
+- 下一步：M3c RAG 评测（RAGAS：召回/忠实度/答案相关性）+ 混合检索/重排 + 换真实嵌入模型（DashScope）。

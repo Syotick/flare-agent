@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from rag.pipeline import KnowledgeBase
 from rag.schemas import (
@@ -43,8 +43,8 @@ def build_kb_router(kb: KnowledgeBase) -> APIRouter:
             raise HTTPException(status_code=404, detail="document not found")
 
     @router.get("/search", response_model=list[SearchHitResponse])
-    async def search_kb(q: str, k: int = 5) -> list[SearchHitResponse]:
-        """语义检索：返回 top-k 片段，带来源(title + chunk 序号 + 分数)。"""
+    async def search_kb(q: str, k: int = Query(5, ge=1, le=20)) -> list[SearchHitResponse]:
+        """语义检索：返回 top-k 片段，带来源(title + chunk 序号 + 分数)。k 限 1..20（R4）。"""
         hits = await kb.search(q, k=k)
         return [
             SearchHitResponse(

@@ -11,7 +11,8 @@ from tools_gateway.registry import Tool, ToolResult
 
 
 def _fmt_hit(hit) -> str:
-    return f"[{hit.title} #{hit.chunk_index} | score={hit.score:.3f}] {hit.text[:200]}"
+    # R7：给模型观察的文本放宽到 300 字符（artifacts 仍带全量 chunk）
+    return f"[{hit.title} #{hit.chunk_index} | score={hit.score:.3f}] {hit.text[:300]}"
 
 
 def build_kb_search_tool(kb: KnowledgeBase) -> Tool:
