@@ -39,10 +39,23 @@
 | --- | --- | --- |
 | [01-agent-interview-questions.md](./learning/01-agent-interview-questions.md) | draft | 高级 Agent 工程师面试题库（实践 + 真理），FR-10 验收清单 |
 
-### adr/ 架构决策记录
+### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |
 | --- | --- | --- |
-| — | （暂无，见 [adr/README.md](./adr/README.md) 使用说明） | — |
+| 0001 | 数据库选型：PostgreSQL | accepted |
+| 0002 | 编排引擎：LangGraph | accepted |
+| 0003 | 运行时语言与 API 框架：Python + FastAPI | accepted |
+| 0004 | 向量库：Milvus（主选） | accepted |
+| 0005 | 会话与缓存：Redis | accepted |
+| 0006 | 消息队列：RocketMQ / Kafka | accepted |
+| 0007 | 对象存储：OSS / MinIO | accepted |
+| 0008 | 模型网关：自研 OpenAI 兼容 | accepted |
+| 0009 | 沙箱隔离：Kata/Firecracker | accepted |
+| 0010 | 推理服务：vLLM / SGLang | accepted |
+| 0011 | 可观测性：OpenTelemetry 栈 | accepted |
+| 0012 | 前端形态：本地 Web 优先 | accepted |
+| 0013 | 部署平台：阿里云 ACK（K8s） | accepted |
+| 0014 | CI/CD：GitHub Actions | accepted |
 
 ## 三、命名规范（强制）
 

@@ -18,4 +18,17 @@
 
 | 编号 | 标题 | 状态 | 日期 |
 | --- | --- | --- | --- |
-| — | （暂无） | — | — |
+| 0001 | 数据库选型：PostgreSQL | accepted | 2026-08-27 |
+| 0002 | 编排引擎：LangGraph | accepted | 2026-08-27 |
+| 0003 | 运行时语言与 API 框架：Python + FastAPI | accepted | 2026-08-27 |
+| 0004 | 向量库：Milvus（主选） | accepted | 2026-08-27 |
+| 0005 | 会话与缓存：Redis | accepted | 2026-08-27 |
+| 0006 | 消息队列：RocketMQ（生产）/ Kafka 备选 | accepted | 2026-08-27 |
+| 0007 | 对象存储：阿里云 OSS / MinIO（本地） | accepted | 2026-08-27 |
+| 0008 | 模型网关：自研 OpenAI 兼容（LiteLLM 起步） | accepted | 2026-08-27 |
+| 0009 | 沙箱隔离：Kata/Firecracker 微虚拟化 | accepted | 2026-08-27 |
+| 0010 | 推理服务：vLLM 首选 / SGLang 备选 | accepted | 2026-08-27 |
+| 0011 | 可观测性：OpenTelemetry + Prometheus/Grafana + Loki | accepted | 2026-08-27 |
+| 0012 | 前端形态：本地 Web 优先 | accepted | 2026-08-27 |
+| 0013 | 部署平台：阿里云 ACK（K8s） | accepted | 2026-08-27 |
+| 0014 | CI/CD：GitHub Actions | accepted | 2026-08-27 |
