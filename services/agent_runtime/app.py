@@ -12,6 +12,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from agent_runtime.routes.tasks import build_tasks_router
+from agent_runtime.tasks import TaskManager
 from flare_common import __version__
 from flare_common.config import Settings, get_settings
 from flare_common.errors import FlareError
@@ -43,8 +45,10 @@ async def _unhandled_error_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """创建 FastAPI 应用；传入 settings 可隔离测试环境。"""
+def create_app(
+    settings: Settings | None = None, task_manager: TaskManager | None = None
+) -> FastAPI:
+    """创建 FastAPI 应用；传入 settings/task_manager 可隔离测试环境。"""
     settings = settings or get_settings()
     setup_logging(settings.log_level)
 
@@ -57,6 +61,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.add_exception_handler(FlareError, _flare_error_handler)
     app.add_exception_handler(Exception, _unhandled_error_handler)
+
+    # M2-4c: 任务 API（graph + checkpointer 接入 HTTP，端到端回路）
+    app.include_router(build_tasks_router(task_manager or TaskManager()))
 
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
