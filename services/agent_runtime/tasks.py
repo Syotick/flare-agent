@@ -12,8 +12,9 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 
 from agent_runtime.checkpoint import get_checkpointer
 from agent_runtime.graph import build_react_agent
@@ -140,10 +141,12 @@ class TaskManager:
             if task.done:
                 break
             await asyncio.sleep(0.02)
-        yield (
-            "event: result\n"
-            f"data: {json.dumps({'result': task.result, 'status': task.status, 'error': task.error}, ensure_ascii=False, default=_json_default)}\n\n"
+        payload = json.dumps(
+            {"result": task.result, "status": task.status, "error": task.error},
+            ensure_ascii=False,
+            default=_json_default,
         )
+        yield "event: result\n" f"data: {payload}\n\n"
 
     def get(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)
