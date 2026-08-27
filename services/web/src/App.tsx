@@ -1,19 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { ActionIcon, AppShell, Badge, Group, Text } from "@mantine/core";
 import { createTask, deleteTask, getTask, listTasks } from "./api";
-import { Composer, Sidebar, renderItem } from "./components";
-import { IconMenu, IconSpark } from "./icons";
+import ChatView from "./components/ChatView";
+import Composer from "./components/Composer";
+import Sidebar from "./components/Sidebar";
 import type { Item } from "./types";
 
 let nextId = 1;
 
 interface ResultPayload {
-  result: {
-    status: string;
-    output: string;
-    step_count: number;
-    message_count: number;
-  } | null;
+  result: { status: string; output: string; step_count: number; message_count: number } | null;
   status: string;
   error?: string | null;
 }
@@ -38,8 +33,6 @@ export default function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [tasks, setTasks] = useState<import("./api").TaskDetail[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // 默认展开
-  const endRef = useRef<HTMLDivElement | null>(null);
   const lastToolId = useRef<number | null>(null);
   const lastAssistantId = useRef<number | null>(null);
 
@@ -79,12 +72,9 @@ export default function App() {
 
     es.addEventListener("step", (ev) => {
       window.clearTimeout(stall);
-      const data = parseSSE<{ type: string; node: string[]; data: Record<string, any> }>(
-        (ev as MessageEvent).data
-      );
+      const data = parseSSE<{ type: string; node: string[]; data: Record<string, any> }>((ev as MessageEvent).data);
       if (!data) return;
       const nodes = Array.isArray(data.node) ? data.node : [];
-
       if (nodes.includes("actor") && data.data.actor) {
         const actor = data.data.actor;
         if (actor.action === "call_tool" && actor.pending_tool) {
@@ -92,22 +82,13 @@ export default function App() {
           lastToolId.current = id;
           setItems((prev) => [
             ...prev,
-            {
-              id,
-              kind: "tool",
-              name: actor.pending_tool.name,
-              args: actor.pending_tool.args || {},
-              status: "running",
-            },
+            { id, kind: "tool", name: actor.pending_tool.name, args: actor.pending_tool.args || {}, status: "running" },
           ]);
         }
         if (actor.action === "final" && actor.output) {
           const id = nextId++;
           lastAssistantId.current = id;
-          setItems((prev) => [
-            ...prev,
-            { id, kind: "assistant", msg: { text: actor.output, done: false } },
-          ]);
+          setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: actor.output, done: false } }]);
         }
       }
       if (nodes.includes("tool_executor") && data.data.tool_executor) {
@@ -118,16 +99,7 @@ export default function App() {
           setItems((prev) =>
             prev.map((it) =>
               it.id === id && it.kind === "tool"
-                ? {
-                    ...it,
-                    status: "done" as const,
-                    result: {
-                      ok: r.ok,
-                      content: r.content,
-                      error_code: r.error_code,
-                      artifacts: r.artifacts || {},
-                    },
-                  }
+                ? { ...it, status: "done" as const, result: { ok: r.ok, content: r.content, error_code: r.error_code, artifacts: r.artifacts || {} } }
                 : it
             )
           );
@@ -142,11 +114,7 @@ export default function App() {
       const aid = lastAssistantId.current;
       if (aid != null) {
         setItems((prev) =>
-          prev.map((it) =>
-            it.id === aid && it.kind === "assistant"
-              ? { ...it, msg: { ...it.msg, done: true } }
-              : it
-          )
+          prev.map((it) => (it.id === aid && it.kind === "assistant" ? { ...it, msg: { ...it.msg, done: true } } : it))
         );
       }
       if (data) {
@@ -170,10 +138,7 @@ export default function App() {
       es.close();
       setRunning(false);
       if (!closed && !finished) {
-        setItems((prev) => [
-          ...prev,
-          { id: nextId++, kind: "status", text: "connection lost", tone: "error" },
-        ]);
+        setItems((prev) => [...prev, { id: nextId++, kind: "status", text: "connection lost", tone: "error" }]);
       }
     };
 
@@ -183,11 +148,6 @@ export default function App() {
       es.close();
     };
   }, [activeTaskId]);
-
-  // 自动滚底
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [items.length]);
 
   const rememberTask = (taskId: string) => {
     const url = new URL(window.location.href);
@@ -200,35 +160,25 @@ export default function App() {
     }
   };
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || running) return;
+  const send = async (text?: string) => {
+    const content = (text ?? input).trim();
+    if (!content || running) return;
     setRunning(true);
     setInput("");
-    setItems((prev) => [...prev, { id: nextId++, kind: "user", text }]);
+    setItems((prev) => [...prev, { id: nextId++, kind: "user", text: content }]);
     try {
-      const created = await createTask(text, maxSteps, threadId || undefined);
+      const created = await createTask(content, maxSteps, threadId || undefined);
       rememberTask(created.task_id);
       setActiveTaskId(created.task_id);
       setItems((prev) => [
         ...prev,
-        {
-          id: nextId++,
-          kind: "status",
-          text: "submitted · " + created.task_id,
-          tone: "info",
-        },
+        { id: nextId++, kind: "status", text: "submitted · " + created.task_id, tone: "info" },
       ]);
     } catch (err) {
       setRunning(false);
       setItems((prev) => [
         ...prev,
-        {
-          id: nextId++,
-          kind: "status",
-          text: err instanceof Error ? err.message : String(err),
-          tone: "error",
-        },
+        { id: nextId++, kind: "status", text: err instanceof Error ? err.message : String(err), tone: "error" },
       ]);
     }
   };
@@ -236,22 +186,16 @@ export default function App() {
   const cancel = () => {
     setActiveTaskId(null);
     setRunning(false);
-    setItems((prev) => [
-      ...prev,
-      { id: nextId++, kind: "status", text: "cancelled", tone: "warn" },
-    ]);
+    setItems((prev) => [...prev, { id: nextId++, kind: "status", text: "cancelled", tone: "warn" }]);
   };
 
   const pickTask = (taskId: string) => {
     setRunning(true);
     setActiveTaskId(taskId);
-    if (window.innerWidth < 640) setSidebarOpen(false); // 窄屏选完自动收起
     rememberTask(taskId);
     getTask(taskId)
       .then((d) => {
-        if (d.status !== "pending" && d.status !== "running") {
-          setRunning(false);
-        }
+        if (d.status !== "pending" && d.status !== "running") setRunning(false);
       })
       .catch(() => setRunning(false));
   };
@@ -290,95 +234,34 @@ export default function App() {
     }
   };
 
-  const hasContent = items.length > 0;
-
   return (
-    <AppShell
-      header={{ height: 52 }}
-      navbar={{ width: 280, breakpoint: "sm", collapsed: { desktop: !sidebarOpen, mobile: !sidebarOpen } }}
-      padding={0}
-    >
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap="sm">
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="lg"
-              onClick={() => setSidebarOpen((o) => !o)}
-              title={sidebarOpen ? "收起侧栏" : "展开侧栏"}
-            >
-              <IconMenu size={17} />
-            </ActionIcon>
-            <span className="orb">
-              <IconSpark size={11} />
-            </span>
-            <Text fw={700} fz={15} lh={1}>
-              Flare
-            </Text>
-            <Badge variant="light" color="flare" size="xs" radius="xl">
-              Agent
-            </Badge>
-          </Group>
-          <div className="header-right" />
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Navbar p="sm">
+    <div className="flex h-full w-full overflow-hidden">
+      <div className="hidden h-full md:block">
         <Sidebar
           tasks={tasks}
           activeTaskId={activeTaskId}
           onPick={pickTask}
           onNew={newChat}
           onDelete={handleDelete}
+          running={running}
         />
-      </AppShell.Navbar>
-
-      <AppShell.Main>
-        <div className="chat">
-          {!hasContent ? (
-            <div className="welcome">
-              <div className="welcome-mark">
-                <span className="welcome-orb">
-                  <IconSpark size={20} />
-                </span>
-              </div>
-              <Text component="h2" fz={22} fw={650} mb={10}>
-                有什么可以帮你的？
-              </Text>
-              <Text c="dimmed" size="sm" ta="center" maw={420}>
-                Flare 是一个可上线的 AI Agent 平台。
-                给我一个任务，我会思考、调用工具、观察并给出结论。
-              </Text>
-            </div>
-          ) : (
-            <div className="msgs">
-              {items.map((it) => renderItem(it))}
-              {running && (
-                <div className="thinking">
-                  <span className="spinner" />
-                  thinking…
-                </div>
-              )}
-              <div ref={endRef} />
-            </div>
-          )}
-
-          <Composer
-            value={input}
-            onChange={setInput}
-            onSend={send}
-            onStop={cancel}
-            onKeyDown={onKeyDown}
-            disabled={false}
-            running={running}
-            maxSteps={maxSteps}
-            setMaxSteps={setMaxSteps}
-            threadId={threadId}
-            setThreadId={setThreadId}
-          />
-        </div>
-      </AppShell.Main>
-    </AppShell>
+      </div>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <ChatView items={items} running={running} onPick={(t) => send(t)} />
+        <Composer
+          value={input}
+          onChange={setInput}
+          onSend={() => send()}
+          onStop={cancel}
+          onKeyDown={onKeyDown}
+          disabled={false}
+          running={running}
+          maxSteps={maxSteps}
+          setMaxSteps={setMaxSteps}
+          threadId={threadId}
+          setThreadId={setThreadId}
+        />
+      </main>
+    </div>
   );
 }
