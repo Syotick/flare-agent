@@ -37,6 +37,7 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 - 🌐 **网络**：git 直连 github.com 会失败，需走代理（已配 `git config --global http.proxy http://127.0.0.1:7890`，Clash 端口）；gh 走 api.github.com 无需代理。
 - 💡 **踩坑经验**：① GitHub Actions 的 YAML 里内联 `run: echo "TODO: xxx: yyy"` 这种「值含冒号+空格」必须用 block scalar（`run: |`），否则 workflow 解析失败（run 0 秒失败、workflow 名变文件路径）。② 分支保护的 required status check context 必须与 GitHub 实际生成的 check-run 名称一致——本项目是 `Required Status Gate`（不是 `CI / Required Status Gate`），名称不匹配会导致 PR mergeStateStatus=BLOCKED。③ gitleaks-action@v2 在 PR 模式需要 workflow `permissions: pull-requests: read`，否则 403。
 - **开发规范（强制）**：docs/engineering/01-development-standards.md（分支/提交/评审/测试/CI-CD/发布/SRE/安全）
+- **代码审查（2026-08-27 起）**：首轮审查记录 docs/engineering/03-code-review-r1.md（18 项意见已处置，8 项复查清单待下轮核对）；后续每轮审查结果都归档到 engineering/
 - 当前阶段：M0 完成 + 需求已确认（技术栈/形态/沙箱），进入 M1 设计评审 / M2 开发准备
 
 ## 4. 已做决策（按时间倒序，最新在上）
