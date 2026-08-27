@@ -37,8 +37,8 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 - 🌐 **网络**：git 直连 github.com 会失败，需走代理（已配 `git config --global http.proxy http://127.0.0.1:7890`，Clash 端口）；gh 走 api.github.com 无需代理。
 - 💡 **踩坑经验**：① GitHub Actions 的 YAML 里内联 `run: echo "TODO: xxx: yyy"` 这种「值含冒号+空格」必须用 block scalar（`run: |`），否则 workflow 解析失败（run 0 秒失败、workflow 名变文件路径）。② 分支保护的 required status check context 必须与 GitHub 实际生成的 check-run 名称一致——本项目是 `Required Status Gate`（不是 `CI / Required Status Gate`），名称不匹配会导致 PR mergeStateStatus=BLOCKED。③ gitleaks-action@v2 在 PR 模式需要 workflow `permissions: pull-requests: read`，否则 403。
 - **开发规范（强制）**：docs/engineering/01-development-standards.md（分支/提交/评审/测试/CI-CD/发布/SRE/安全）
-- **代码审查（2026-08-27 起）**：Round 1 记录 docs/engineering/03-code-review-r1.md（18 项已处置）；Round 2 记录 docs/engineering/04-code-review-r2.md（F1-F4 全部修复）；后续每轮审查结果都归档到 engineering/
-- **M2 代码结构（2026-08-27）**：services/ 已开工——共享库 flare_common(config/logging/telemetry/errors) + agent_runtime(app工厂+骨架+**LangGraph ReAct 图**(actor↔tool_executor、预算熔断、ToolCallDecision 决策契约、SQLite checkpoint)+**任务API**(POST /v1/tasks + SSE)) + tools_gateway(ToolRegistry+echo) + model_gateway(ModelProvider+mock) + **web(Console: Vite+React+TS, services/web)** + rag/sandbox 占位；pip install -e . 可安装；pytest 29 全绿，ruff/black 干净；make web-dev/web-build 管前端
+- **代码审查（2026-08-27 起）**：R1=engineering/03（18项）；R2=engineering/04（F1-F4）；R3=engineering/05（Web前端 L1-L4+问题2/3，真流式/SSE生命周期/折叠滚动/刷新恢复）；后续每轮审查结果都归档到 engineering/
+- **M2 代码结构（2026-08-27）**：services/ 已开工——共享库 flare_common + agent_runtime(LangGraph ReAct 图 + 任务API **POST 立即返回202 + SSE 真流式 + GET 详情/列表**) + tools_gateway + model_gateway + **web Console(Vite+React+TS：SSE effect化、历史面板、刷新恢复、超长折叠)** + rag/sandbox 占位；pip install -e . 可安装；pytest 31 全绿，ruff/black 干净；make web-dev/web-build 管前端
 - 当前阶段：**M2 完成核心闭环**（M2-4a 工具地基 ✅ + M2-4b ReAct 核心 ✅ + M2-4c 任务API/SSE ✅ + M2-4e Web Console ✅；Round 2 审查 F1-F4 已处置）。下一步：M3 RAG 知识库 + 记忆体系，或先收 M2（单用户 E2E 验收 + CI 实跑）
 
 ## 4. 已做决策（按时间倒序，最新在上）

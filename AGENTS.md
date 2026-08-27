@@ -28,8 +28,8 @@
 
 ## 当前进度
 - 阶段 0/1 完成：Git 仓库（已公开 Syotick/flare-agent）+ 文档体系 + 记忆 + M1 设计评审（ADR ×15、模块设计、压测方案）
-- **M2 核心闭环完成**：flare_common / agent_runtime(app 工厂+ReAct 图+任务 API+SSE) / tools_gateway / model_gateway / **web(Console: Vite+React)**；conda env flare-agent；pytest 29 全绿；make web-dev / web-build
-- 代码审查：R1 记录 docs/engineering/03-code-review-r1.md（18 项处置）；R2 记录 docs/engineering/04-code-review-r2.md（F1-F4 修复）
+- **M2 核心闭环完成**：flare_common / agent_runtime(ReAct 图+任务 API：POST 202+SSE 真流式+GET 详情/列表) / tools_gateway / model_gateway / **web Console(Vite+React：SSE effect化+历史+刷新恢复)**；conda env flare-agent；pytest 31 全绿；make web-dev / web-build
+- 代码审查：R1=engineering/03；R2=engineering/04（F1-F4）；R3=engineering/05（Web 前端 L1-L4+问题2/3）
 - 下一步：M3 RAG 知识库 + 记忆体系（或先做单用户 E2E 验收）
 
 ## 目录速览
