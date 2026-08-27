@@ -1,0 +1,54 @@
+# Flare Agent 本地开发环境（M2 起）
+# 说明：本机无 Docker 时可跳过；CI 与云端不依赖此文件。
+# 组件：PostgreSQL(pgvector 预留) / Redis / MinIO(OSS 模拟) / Qdrant(向量, Milvus 轻量替代)
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: flare-postgres
+    environment:
+      POSTGRES_USER: flare
+      POSTGRES_PASSWORD: flare
+      POSTGRES_DB: flare
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flare -d flare"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: flare-redis
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio
+    container_name: flare-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # 控制台
+    volumes:
+      - miniodata:/data
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: flare-qdrant
+    ports:
+      - "6333:6333"   # HTTP
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+volumes:
+  pgdata: {}
+  miniodata: {}
+  qdrantdata: {}

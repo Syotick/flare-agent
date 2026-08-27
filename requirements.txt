@@ -1,0 +1,13 @@
+# Flare Agent 运行时依赖（单一事实来源：CI 安装 + pip-audit）
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.32,<1.0
+pydantic>=2.9,<3.0
+pydantic-settings>=2.6,<3.0
+langgraph>=0.2.60
+langgraph-checkpoint-postgres>=2.0
+psycopg[binary]>=3.2
+redis>=5.2
+httpx>=0.28
+opentelemetry-api>=1.29
+opentelemetry-sdk>=1.29
+python-dotenv>=1.0

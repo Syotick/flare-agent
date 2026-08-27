@@ -1,0 +1,34 @@
+[project]
+name = "flare-agent"
+version = "0.1.0"
+description = "企业级 AI Agent 平台（模块化单体，services/ 为可拆分 app）"
+requires-python = ">=3.12"
+authors = [{ name = "Syotick" }]
+license = { text = "MIT" }
+# 依赖统一放 requirements.txt（CI pip-audit / 安装以此为单一事实来源）
+
+[project.optional-dependencies]
+dev = ["-r requirements-dev.txt"]
+
+[tool.setuptools.packages.find]
+where = ["services"]
+include = ["common*", "agent_runtime*", "model_gateway*", "rag*", "tools_gateway*", "sandbox*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["services", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["services"]
+addopts = "-q"
