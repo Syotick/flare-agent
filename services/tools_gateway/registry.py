@@ -1,31 +1,43 @@
 """工具注册表：工具系统的最小核心（M2-4a）。
 
-工具 = 名称 + 描述(供 LLM 选择) + 参数 Schema(JSON Schema) + 执行函数。
-后续演进：MCP 适配、权限分级、鉴权、审计（见 02-module-design.md §3）。
+工具 = 名称 + 描述 + 参数 Schema(JSON Schema) + 执行函数(async)。
+边界（防上帝模块）：注册/查询/执行只在此类；权限/限流/审计/审批做独立层（M3+）。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from flare_common.errors import NotFoundError
+import jsonschema
+
+from flare_common.errors import NotFoundError, ValidationError
+
+
+@dataclass
+class ToolResult:
+    """工具执行结果（结构化，供 Agent 观察回传；A2）。"""
+
+    ok: bool
+    content: str = ""
+    error_code: str | None = None
+    artifacts: dict[str, Any] = field(default_factory=dict)  # 预留：文件/引用等
 
 
 class ToolFunc(Protocol):
-    def __call__(self, **kwargs: Any) -> str: ...
+    async def __call__(self, **kwargs: Any) -> ToolResult: ...
 
 
 @dataclass(frozen=True)
 class Tool:
     name: str
     description: str
-    parameters: dict[str, Any]  # JSON Schema（供 LLM 生成参数）
+    parameters: dict[str, Any]  # JSON Schema（运行时校验 + 供 LLM 生成参数）
     func: ToolFunc
 
 
 class ToolRegistry:
-    """进程内工具注册表（后续可加权限/审计）。"""
+    """进程内工具注册表（只做注册/查询/执行；横切能力独立分层）。"""
 
     def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
@@ -44,6 +56,20 @@ class ToolRegistry:
     def list(self) -> list[Tool]:
         return sorted(self._tools.values(), key=lambda t: t.name)
 
-    def execute(self, name: str, args: dict[str, Any] | None = None) -> str:
+    async def execute(self, name: str, args: dict[str, Any] | None = None) -> ToolResult:
+        """执行工具：先按 JSON Schema 校验参数（非法抛 422），再执行。
+
+        工具内部错误不向上抛，转为结构化失败结果，便于 Agent 观察后重试/换路。
+        """
         tool = self.get(name)
-        return tool.func(**(args or {}))
+        params = args or {}
+        try:
+            jsonschema.validate(instance=params, schema=tool.parameters)
+        except jsonschema.ValidationError as exc:
+            raise ValidationError(f"工具 {name} 参数不合法: {exc.message}") from exc
+        try:
+            return await tool.func(**params)
+        except NotFoundError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - 工具内部错误转结构化结果
+            return ToolResult(ok=False, error_code="TOOL_EXECUTION_ERROR", content=str(exc))

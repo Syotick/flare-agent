@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tools_gateway.registry import Tool, ToolRegistry
+from tools_gateway.registry import Tool, ToolRegistry, ToolResult
 
 
-def _echo(**kwargs: str) -> str:
+async def _echo(**kwargs: str) -> ToolResult:
     """原样返回输入文本（连通性/教学演示用）。"""
-    return f"echo: {kwargs.get('text', '')}"
+    return ToolResult(ok=True, content=f"echo: {kwargs['text']}")
 
 
 def create_default_registry() -> ToolRegistry:
