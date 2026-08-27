@@ -6,8 +6,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from common.config import get_settings
-from common.logging import setup_logging
+from flare_common.config import get_settings
+from flare_common.logging import setup_logging
 
 settings = get_settings()
 setup_logging(settings.log_level)

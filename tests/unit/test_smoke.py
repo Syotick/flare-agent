@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from agent_runtime.main import app
-from common.config import Settings
+from flare_common.config import Settings
 
 
 def test_settings_defaults() -> None:

@@ -23,7 +23,7 @@ flare-agent/
 │   ├── tools_gateway/          # 工具/MCP 网关 + ToolRegistry
 │   ├── sandbox/                # 沙箱执行服务（Docker dev / Kata prod）
 │   ├── web/                    # Web 控制台（Vite + React，Node 工程）
-│   └── common/                 # 共享：schemas、SDK、logging、OTel、配置
+│   └── flare_common/          # 共享库（带命名空间，可独立安装）：schemas、SDK、logging、OTel、配置
 ├── infra/
 │   ├── docker-compose.yml       # 本地环境一键起（PG/Redis/Milvus|Qdrant/MinIO/...）
 │   ├── k8s/                     # 阿里云 ACK 部署（Helm，M5）

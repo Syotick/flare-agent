@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from common.errors import NotFoundError
+from flare_common.errors import NotFoundError
 
 
 class ToolFunc(Protocol):

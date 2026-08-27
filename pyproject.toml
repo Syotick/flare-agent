@@ -12,7 +12,7 @@ dev = ["-r requirements-dev.txt"]
 
 [tool.setuptools.packages.find]
 where = ["services"]
-include = ["common*", "agent_runtime*", "model_gateway*", "rag*", "tools_gateway*", "sandbox*"]
+include = ["flare_common*", "agent_runtime*", "model_gateway*", "rag*", "tools_gateway*", "sandbox*"]
 
 [tool.black]
 line-length = 100
