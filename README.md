@@ -15,10 +15,11 @@
 | 文档 | 说明 |
 | --- | --- |
 | [CLAUDE.md](./CLAUDE.md) | **项目记忆**（会话恢复时优先读取） |
-| [docs/research/01-market-and-tech-research.md](./docs/research/01-market-and-tech-research.md) | 市场与技术调研报告 |
-| [docs/research/02-agent-interview-questions.md](./docs/research/02-agent-interview-questions.md) | 高级 Agent 工程师面试题库（实践 + 真理） |
-| [docs/requirements/01-development-requirements.md](./docs/requirements/01-development-requirements.md) | 开发需求说明书 |
-| [docs/architecture/01-architecture-overview.md](./docs/architecture/01-architecture-overview.md) | 架构总览 |
+| [docs/README.md](./docs/README.md) | **文档中心**：总索引 + 文档管理规范（唯一入口） |
+| [docs/product/research/01-market-and-tech-research.md](./docs/product/research/01-market-and-tech-research.md) | 市场与技术调研报告 |
+| [docs/product/requirements/01-development-requirements.md](./docs/product/requirements/01-development-requirements.md) | 开发需求说明书 |
+| [docs/product/architecture/01-architecture-overview.md](./docs/product/architecture/01-architecture-overview.md) | 架构总览 |
+| [docs/learning/01-agent-interview-questions.md](./docs/learning/01-agent-interview-questions.md) | 高级 Agent 工程师面试题库（实践 + 真理） |
 | [docs/engineering/01-development-standards.md](./docs/engineering/01-development-standards.md) | 开发流程与工程规范（CI/CD/测试/评审/发布/SRE） |
 
 ## 状态

@@ -1,7 +1,7 @@
 # Flare Agent · 开发需求说明书
 
 > 版本：v1.0 ｜ 日期：2026-08-27 ｜ 状态：**已确认（2026-08-27），进入 M1 设计评审**
-> 上游文档：docs/research/01-market-and-tech-research.md
+> 上游文档：docs/product/research/01-market-and-tech-research.md
 
 ---
 
@@ -78,7 +78,7 @@
 - F9.3 **REST/OpenAI 兼容 API**（任务提交、进度、结果、webhook）——预留。
 
 ### FR-10 面试考点全覆盖（"实践 + 真理"）
-- F10.1 以高级 Agent 工程师面试题库（docs/research/02-agent-interview-questions.md）为**验收清单**，每个考点在项目中要有对应落地模块或实验。
+- F10.1 以高级 Agent 工程师面试题库（docs/learning/01-agent-interview-questions.md）为**验收清单**，每个考点在项目中要有对应落地模块或实验。
 - F10.2 重点覆盖：多路召回/混合检索/GraphRAG、记忆分层与上下文工程、工具调用与 MCP、安全（注入防护/沙箱/租户隔离）、评测、高并发系统设计、推理优化、成本控制。
 - F10.3 理论文档与实现代码一一对应：**"面试答题 = 讲我们怎么落地"**。
 
