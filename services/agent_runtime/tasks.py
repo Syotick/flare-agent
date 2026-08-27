@@ -1,12 +1,15 @@
-"""任务服务层（M2-4c）：TaskManager 编排 agent 图执行，记录执行轨迹事件与结果。
+"""任务服务层（M2-4c，Round3-L1 真·流式）：POST 立即返回，后台执行，SSE 实时推送。
 
-单用户 dev 阶段：进程内存储；M5 迁移 Redis/DB（多实例 + 任务队列）。
-checkpointer 走 get_checkpointer（SQLite 落盘），同一 thread_id 可跨请求续跑。
+- create(): 登记任务 + asyncio 后台执行，立即返回（不阻塞请求）
+- stream(): 轮询 events + 终态判断——多客户端 / 刷新重连各自带索引，互不干扰
+- 进程内存储（M5 迁移 Redis/DB）；checkpointer 走 get_checkpointer（SQLite 落盘）
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -16,6 +19,10 @@ from agent_runtime.checkpoint import get_checkpointer
 from agent_runtime.graph import build_react_agent
 from model_gateway.mock import MockModelProvider
 from tools_gateway.builtin import create_default_registry
+
+logger = logging.getLogger(__name__)
+
+TERMINAL = frozenset({"completed", "budget_exceeded", "failed"})
 
 
 def _json_default(obj: Any) -> Any:
@@ -37,9 +44,26 @@ class TaskRecord:
     result: dict[str, Any] | None = None
     error: str | None = None
 
+    @property
+    def done(self) -> bool:
+        return self.status in TERMINAL
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "task_id": self.task_id,
+            "thread_id": self.thread_id,
+            "task_input": self.task_input,
+            "status": self.status,
+            "created_at": self.created_at,
+            "step_count": (self.result or {}).get("step_count", 0),
+            "event_count": len(self.events),
+            "result": self.result,
+            "error": self.error,
+        }
+
 
 class TaskManager:
-    """进程内任务管理（M2-4c）。"""
+    """进程内任务管理（L1：后台执行 + 实时流）。"""
 
     def __init__(
         self,
@@ -53,14 +77,14 @@ class TaskManager:
         self._checkpointer_factory = checkpointer_factory or get_checkpointer
         self._tasks: dict[str, TaskRecord] = {}
 
-    async def create_and_run(
+    async def create(
         self,
         task_input: str,
         *,
         thread_id: str | None = None,
         max_steps: int = 5,
     ) -> TaskRecord:
-        """创建任务并同步跑到终态，记录执行轨迹。"""
+        """登记任务并后台执行，立即返回（L1：请求不被任务耗时阻塞）。"""
         task = TaskRecord(
             task_id=uuid.uuid4().hex[:12],
             thread_id=thread_id or uuid.uuid4().hex[:12],
@@ -68,15 +92,21 @@ class TaskManager:
             max_steps=max_steps,
         )
         self._tasks[task.task_id] = task
-        task.status = "running"
+        asyncio.create_task(self._execute(task))
+        return task
 
-        checkpointer = await self._checkpointer_factory()
-        agent = build_react_agent(
-            self._llm, self._registry, max_steps=max_steps, checkpointer=checkpointer
-        )
+    async def _execute(self, task: TaskRecord) -> None:
+        task.status = "running"
         try:
+            checkpointer = await self._checkpointer_factory()
+            agent = build_react_agent(
+                self._llm,
+                self._registry,
+                max_steps=task.max_steps,
+                checkpointer=checkpointer,
+            )
             async for update in agent.astream(
-                {"task_input": task_input},
+                {"task_input": task.task_input},
                 {"configurable": {"thread_id": task.thread_id}},
                 stream_mode="updates",
             ):
@@ -90,19 +120,34 @@ class TaskManager:
                 "message_count": len(values.get("messages", [])),
             }
             task.status = values.get("status", "failed")
-        except Exception as exc:  # noqa: BLE001 - 顶层兜底，任务标记失败而非崩请求
+        except Exception as exc:  # noqa: BLE001 - 顶层兜底：任务标记失败而非崩请求
+            logger.exception("task %s failed: %s", task.task_id, exc)
             task.status = "failed"
             task.error = str(exc)
-        return task
 
-    def get(self, task_id: str) -> TaskRecord | None:
-        return self._tasks.get(task_id)
-
-    def to_sse(self, task: TaskRecord) -> AsyncIterator[str]:
-        """把任务轨迹转成 SSE 文本流（step 事件 + result 收尾）。"""
-        for ev in task.events:
-            yield f"event: {ev['type']}\ndata: {json.dumps(ev, ensure_ascii=False, default=_json_default)}\n\n"
+    async def stream(self, task: TaskRecord) -> AsyncIterator[str]:
+        """轮询 events 实时推送；终态后补 result 并结束。多客户端各自带索引，互不干扰。"""
+        idx = 0
+        while True:
+            if idx < len(task.events):
+                ev = task.events[idx]
+                idx += 1
+                yield (
+                    "event: step\n"
+                    f"data: {json.dumps(ev, ensure_ascii=False, default=_json_default)}\n\n"
+                )
+                continue
+            if task.done:
+                break
+            await asyncio.sleep(0.02)
         yield (
             "event: result\n"
             f"data: {json.dumps({'result': task.result, 'status': task.status, 'error': task.error}, ensure_ascii=False, default=_json_default)}\n\n"
         )
+
+    def get(self, task_id: str) -> TaskRecord | None:
+        return self._tasks.get(task_id)
+
+    def recent(self, limit: int = 20) -> list[TaskRecord]:
+        recs = sorted(self._tasks.values(), key=lambda t: t.created_at, reverse=True)
+        return recs[:limit]
