@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from common.errors import NotFoundError
+from flare_common.errors import NotFoundError
 from tools_gateway.builtin import create_default_registry
 
 
