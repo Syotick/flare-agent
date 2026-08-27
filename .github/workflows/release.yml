@@ -46,4 +46,5 @@ jobs:
           generate_release_notes: true
 
       - name: Deploy to staging (placeholder -> ACK)
-        run: echo "TODO: kubectl/helm deploy; 金丝雀 5->20->50->100% (docs/engineering 6)"
+        run: |
+          echo "TODO: kubectl/helm deploy; 金丝雀 5->20->50->100% (docs/engineering 6)"
