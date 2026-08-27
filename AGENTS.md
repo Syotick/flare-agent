@@ -17,15 +17,22 @@
 6. 阿里云 OSS 存对象
 7. 强企业级技术栈，云原生
 
+## 已确认决策（2026-08-27）
+- 技术栈：Python + LangGraph + FastAPI + Milvus（主选）+ 自研 OpenAI 兼容模型网关（可自托管 vLLM/SGLang）
+- 产品形态：本地 Web 优先（预留 CLI/API）
+- 沙箱：微虚拟化强隔离（Kata/Firecracker），本地开发 Docker 降级
+- 阿里云凭证：后续提供，开发阶段用本地模拟（MinIO 模拟 OSS、本地 Redis/PG/向量库），存储层 Provider 可切换
+- 新增需求：面试题驱动开发——全面覆盖高级 Agent 工程师考点（多路召回/GraphRAG/记忆/安全/高并发等），实践+真理并重
+
 ## 当前进度
 - 阶段 0 完成：Git 仓库 + GitHub 私有仓库（Syotick/flare-agent）+ 文档骨架 + 记忆
-- 下一步：等待用户确认需求 → 阶段 1 需求/架构评审
+- 需求已确认（技术栈/形态/沙箱），进入 M1 设计评审与 M2 开发准备
 
 ## 目录速览
-- `docs/research/` — 市场与技术调研报告
+- `docs/research/` — 市场与技术调研报告 + 高级 Agent 面试题库（实践+真理）
 - `docs/requirements/` — 开发需求说明书
 - `docs/architecture/` — 架构总览
 - `CLAUDE.md` — 详细项目记忆（唯一权威源）
 
 ## 待决策
-技术栈定夺、阿里云凭证、产品形态优先级、租户模型、预算/模型供应商、沙箱合规、运维人力。
+预算/模型供应商（开发先默认 DeepSeek/通义兼容接口 + 多供应商可配）、运维人力。

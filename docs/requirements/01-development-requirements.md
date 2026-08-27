@@ -1,6 +1,6 @@
 # Flare Agent · 开发需求说明书
 
-> 版本：v0.1 ｜ 日期：2026-08-27 ｜ 状态：**草稿，待用户确认**
+> 版本：v1.0 ｜ 日期：2026-08-27 ｜ 状态：**已确认（2026-08-27），进入 M1 设计评审**
 > 上游文档：docs/research/01-market-and-tech-research.md
 
 ---
@@ -73,9 +73,14 @@
 - F8.4 公告/健康检查/版本升级/灰度发布。
 
 ### FR-9 接入方式
-- F9.1 Web 控制台（任务创建、实时流、审批、历史）。
-- F9.2 **CLI**（对标 Claude Code 体验：项目记忆、权限提示、diff 预览）。
-- F9.3 **REST/OpenAI 兼容 API**（任务提交、进度、结果、webhook）。
+- F9.1 Web 控制台（任务创建、实时流、审批、历史）。**本地 Web 优先**。
+- F9.2 **CLI**（对标 Claude Code 体验：项目记忆、权限提示、diff 预览）——预留。
+- F9.3 **REST/OpenAI 兼容 API**（任务提交、进度、结果、webhook）——预留。
+
+### FR-10 面试考点全覆盖（"实践 + 真理"）
+- F10.1 以高级 Agent 工程师面试题库（docs/research/02-agent-interview-questions.md）为**验收清单**，每个考点在项目中要有对应落地模块或实验。
+- F10.2 重点覆盖：多路召回/混合检索/GraphRAG、记忆分层与上下文工程、工具调用与 MCP、安全（注入防护/沙箱/租户隔离）、评测、高并发系统设计、推理优化、成本控制。
+- F10.3 理论文档与实现代码一一对应：**"面试答题 = 讲我们怎么落地"**。
 
 ## 4. 非功能需求（NFR）
 
@@ -92,16 +97,19 @@
 | N9 | 成本 | 每租户成本可核算、可限流；缓存与模型降级降本 |
 | N10 | 容错 | 重试+熔断+降级；灾备演练；任务幂等不丢不重 |
 
-## 5. 技术栈约束（草案，待评审确认）
+## 5. 技术栈约束（已确认 2026-08-27 ✅）
 
-- 云：阿里云（ACK / RDS / Redis / RocketMQ / OSS / MSE / 可选 PAI-EAS 或百炼）
-- 编排：LangGraph（Python）；API：FastAPI
-- 网关：自研 OpenAI 兼容模型网关（可先用 LiteLLM 起步）
-- 向量库：Milvus（主选）/ Qdrant / DashVector（备选）
+- 编排：**LangGraph（Python）**；API：**FastAPI**；Web：本地优先（Vite/React 控制台，预留 CLI/API）
+- 向量库：**Milvus（主选）**；本地开发可用 Qdrant/内存向量库兜底
+- 模型网关：自研 OpenAI 兼容网关（可先用 LiteLLM 起步）；默认接入 DeepSeek/通义兼容接口，多供应商可配
+- 推理：可自托管 **vLLM / SGLang**（GPU 场景）
+- 沙箱：**Kata Containers / Firecracker microVM**（微虚拟化强隔离），开发期 Docker 降级，沙箱 Provider 可插拔
+- 对象存储：**阿里云 OSS**（生产），开发期 **MinIO** 模拟，存储层 Provider 抽象可切换
+- 云：阿里云（ACK / RDS / Redis / RocketMQ / OSS / MSE）；凭证后续提供，开发阶段本地化
 - 观测：OpenTelemetry + Prometheus/Grafana + Loki 或阿里云 SLS
 - CI/CD：GitHub Actions + 阿里云容器镜像（ACR）+ Helm
 
-> ⚠️ 关键待确认项见 §9。
+> 云资源与凭证：开发阶段不依赖，全部组件本地 Docker 化（MinIO/Redis/PG/Milvus），保证"先开发后续提供凭证"可行。
 
 ## 6. 里程碑规划
 
@@ -132,14 +140,17 @@
 - [x] 开发需求 v0.1（草稿）
 - [ ] 用户确认需求 → M1 评审
 
-## 9. 待用户决策清单（阻塞项）
+## 9. 决策状态（2026-08-27 更新）
 
-1. **技术栈确认**：Python+LangGraph 是否 OK？向量库选 Milvus/Qdrant/DashVector？
-2. **阿里云账号**：能否提供 OSS Bucket 名、地域、AccessKey（或 RAM 子账号）？是否走百炼？
-3. **产品优先级**：Web / CLI / API 先做哪个？目标租户（内部 vs 对外 SaaS）？
-4. **沙箱强度**：容器级够还是必须虚拟化级（Kata/Firecracker）？有没有合规要求？
-5. **模型**：接哪些供应商？预算多少（决定自托管 GPU 与否）？
-6. **运维**：团队人力、值班、是否需要私有化交付？
-7. **命名/品牌**：Flare Agent 是否沿用？
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| 1 | 技术栈（Python+LangGraph？向量库选型？） | ✅ 确认：Python + LangGraph + FastAPI + Milvus |
+| 2 | 阿里云账号/凭证 | ⏳ 后续提供；开发阶段本地模拟（MinIO/本地组件），不阻塞 |
+| 3 | 产品优先级 | ✅ 本地 Web 优先（预留 CLI/API） |
+| 4 | 沙箱强度 | ✅ 微虚拟化强隔离（Kata/Firecracker），开发期 Docker 降级 |
+| 5 | 模型供应商/预算 | ⏳ 开发先默认 DeepSeek/通义兼容接口 + 多供应商可配 |
+| 6 | 运维/私有化 | ⏳ 暂按单人全栈推进，架构预留私有化 |
+| 7 | 命名 | ✅ Flare Agent |
 
-> 用户确认 §9 后，更新本文档为 v1.0 并进入架构评审。
+> 进入 M1 设计评审；新增 FR-10（面试考点全覆盖）已纳入需求。
+

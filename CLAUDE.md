@@ -40,16 +40,21 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 | 2026-08-27 | 技术方向初选（待评审）：Agent 运行时主语言 **Python**（生态最强，LangGraph/CoAgents 等）；控制面可 TS |
 | 2026-08-27 | 对象存储定为**阿里云 OSS**；向量库候选 Milvus/Qdrant/pgvector（需求评审时定夺） |
 | 2026-08-27 | 并发目标表述统一为：**可弹性扩展到百万级并发接入**，不承诺恒定百万在线 |
+| 2026-08-27 | ✅ 技术栈**定稿**：Python + LangGraph + FastAPI + Milvus（主选）；模型网关自研(OpenAI 兼容)；推理可自托管 vLLM/SGLang |
+| 2026-08-27 | ✅ 产品形态：**本地 Web 优先**（Web 控制台 + 预留 CLI/API） |
+| 2026-08-27 | ✅ 沙箱路线：**"最能秀肌肉"的强隔离**——微虚拟化级（Kata Containers / Firecracker microVM），本地开发用 Docker 降级模式，架构上沙箱可插拔 |
+| 2026-08-27 | ✅ 阿里云凭证**后续提供**：开发阶段用本地模拟（MinIO 模拟 OSS、本地 Redis/PG/向量库），存储层做成可切换 Provider |
+| 2026-08-27 | ✅ 新增需求：**面试题驱动开发**——全面覆盖高级 Agent 工程师考点（多路召回/GraphRAG/记忆/安全/高并发等），实践(落地代码)+真理(理论)并重 |
 
-## 5. 待决策 / 待用户确认（下一步阻塞点）
+## 5. 待决策 / 待用户确认（剩余阻塞点）
 
-1. 技术栈最终确认（语言、框架、向量库、推理服务、消息队列）
-2. 阿里云账号/凭证（OSS Bucket 名称、地域、AccessKey 是否可用）
-3. 产品形态优先级：Web / CLI / API 哪个先做
-4. 目标客户/场景：内部工具 vs 对外 SaaS？多租户隔离强度？
-5. 预算与模型供应商（阿里云百炼？OpenAI/Claude/DeepSeek 自接？）
-6. 是否需要代码执行沙箱（强隔离如 Firecracker/Kata）及合规要求
-7. 团队规模与运维人力（决定自动化程度）
+1. ~~技术栈~~ ✅ 已定（Python+LangGraph+Milvus）
+2. 阿里云账号/凭证：**后续提供**，先用本地模拟开发，不阻塞
+3. ~~产品形态~~ ✅ 本地 Web 优先
+4. ~~沙箱~~ ✅ Kata/Firecracker 强隔离（开发期 Docker 降级）
+5. 预算与模型供应商（阿里云百炼？OpenAI/Claude/DeepSeek 自接？）——开发先默认 DeepSeek/通义兼容接口 + 可配置多供应商
+6. ~~沙箱合规~~ ✅ 按企业级微虚拟化做
+7. 团队规模与运维人力（决定自动化程度）——暂按单人全栈推进
 
 ## 6. 里程碑（详细版见 docs/requirements/01-development-requirements.md §6）
 
