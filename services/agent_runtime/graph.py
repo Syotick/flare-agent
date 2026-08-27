@@ -96,10 +96,17 @@ def build_react_agent(
                 "pending_tool": None,
             }
         messages = list(state.get("messages", []))
+        task_input = state.get("task_input", "")
         if not messages:
             # R1：首轮注入工具 schema（system 消息），真实模型才能看到并自主调用工具
             messages.append(LLMMessage(role="system", content=_build_tool_schema(registry)))
-            content = state.get("task_input", "")
+        # M1：续聊（同一 thread 复用）时把本任务的输入作为新 user 消息追加；
+        # 判定标准 = 是否已有以本任务输入结尾的 user 消息（同一任务内不会重复注入）
+        already_injected = any(
+            m.role == "user" and m.content.endswith(task_input) for m in messages
+        )
+        if not already_injected:
+            content = task_input
             if memory_context:
                 content = memory_context + "\n\n" + content
             messages.append(LLMMessage(role="user", content=content))

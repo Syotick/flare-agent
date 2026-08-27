@@ -142,10 +142,17 @@ class MemoryManager:
 
         await self._vector.add(
             nid,
-            f"memory:{nid}",
+            self._note_label(text, nid),  # M3：可读溯源（文本前缀 + 短 id），而非 memory:<nid>
             [ChunkRecord(doc_id=nid, chunk_index=0, text=text, vector=vec)],
         )
         return nid
+
+    @staticmethod
+    def _note_label(text: str, note_id: str) -> str:
+        """M3：向量记忆的可读溯源标签——笔记文本前 24 字符 + 短 id。"""
+        flat = " ".join(text.split())
+        label = flat if len(flat) <= 24 else flat[:24] + "…"
+        return f"{label}·{note_id[:6]}"
 
     async def search_memory(self, query: str, *, k: int = 4) -> list[MemoryHit]:
         """语义召回向量记忆（不带事实库）。"""
@@ -166,6 +173,9 @@ class MemoryManager:
     ) -> str:
         """拼装三层记忆上下文块：事实（全部）+ 向量（按 query 召回）+ 近期对话。"""
         facts = await self.list_facts()
+        # M4：事实内部预算分级——超预算时优先保最新 N 条，不把旧事实硬截断成残缺
+        # （M5 换 LLM 摘要前先用数量封顶；list_facts 已按 updated_at DESC 排序）
+        facts = facts[:15]
         hits: list[MemoryHit] = []
         if query:
             hits = await self.search_memory(query, k=3)

@@ -71,7 +71,11 @@ def build_memory_router(memory: MemoryManager) -> APIRouter:
 
     @router.get("/context", response_model=ContextResponse)
     async def context(q: str = "", budget: int = 1200) -> ContextResponse:
-        """F4.3：拼装三层记忆上下文块（事实 + 按 q 召回的向量记忆）。"""
+        """F4.3：拼装上下文块（事实 + 按 q 召回的向量记忆）。
+
+        recent（短期对话层）是按 thread 的近期消息，由 TaskManager 在任务开始时
+        从 checkpointer 取出并传入——本接口面向工具/调试，不含 recent。
+        """
         block = await memory.build_context(query=q or None, budget_chars=budget)
         return ContextResponse(block=block)
 

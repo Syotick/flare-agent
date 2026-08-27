@@ -86,6 +86,48 @@ async def test_build_context_combines_layers() -> None:
     await mem.close()
 
 
+async def test_build_context_recent_layer() -> None:
+    """M1：recent（短期对话层）真正参与上下文工程。"""
+    mem = MemoryManager()
+    await mem.remember_fact("project", "Flare Agent")
+    block = await mem.build_context(recent=["user: 我叫小明", "assistant: 好的小明"], query="")
+    assert "[近期对话]" in block
+    assert "我叫小明" in block
+    assert "[项目记忆]" in block
+    await mem.close()
+
+
+async def test_mem_recall_is_budgeted() -> None:
+    """M2：mem_recall 不再全量倾倒——按相关度排序 + 封顶条数。"""
+    mem = MemoryManager()
+    registry = create_default_registry()
+    for tool in build_memory_tools(mem):
+        registry.register(tool)
+    for i in range(10):  # 造 10 条无关事实 + 1 条相关事实
+        await mem.remember_fact(f"f{i}", f"第 {i} 条无关事实内容")
+    await mem.remember_fact("deploy", "生产环境部署到阿里云 ACK")
+    r = await registry.execute("mem_recall", {"query": "部署", "k": 3})
+    assert r.ok
+    assert "deploy" in r.content  # 相关事实在前
+    # 封顶：k+2=5 条，11 条事实不可能全量倾倒；最旧的 f0 被挤出
+    assert len(r.artifacts["facts"]) <= 5
+    assert r.artifacts["facts"][0] == "deploy"
+    assert "第 0 条无关事实内容" not in r.content
+    await mem.close()
+
+
+async def test_note_source_is_readable() -> None:
+    """M3：向量记忆溯源可读（文本前缀 + 短 id），而非 memory:<nid>。"""
+    mem = MemoryManager()
+    nid = await mem.remember_note("用户偏好使用 Vim 编辑代码")
+    hits = await mem.search_memory("编辑器", k=2)
+    assert hits
+    src = hits[0].source
+    assert not src.startswith("memory:")
+    assert "Vim" in src and nid[:6] in src
+    await mem.close()
+
+
 # ---------- 工具 ----------
 
 
@@ -170,3 +212,60 @@ def test_memory_context_injected_into_task() -> None:
         output = (body.get("result") or {}).get("output") or ""
         assert "[项目记忆]" in output
         assert "小明" in output
+
+
+def test_recent_layer_injected_on_resumed_thread() -> None:
+    """M1 端到端：同一 thread 续聊 -> 第二任务注入该线程近期对话（短期对话层真正接线）。
+
+    共享同一 checkpointer：任务 1 跑完后线程有历史，任务 2 的 build_context 取到 recent，
+    [近期对话] 会出现在注入上下文里。
+    """
+    mem = MemoryManager()
+    registry = create_default_registry()
+    for tool in build_memory_tools(mem):
+        registry.register(tool)
+    saver = MemorySaver()
+
+    async def _shared_saver():
+        return saver
+
+    manager = TaskManager(
+        registry=registry,
+        llm=_EchoUserProvider(),
+        checkpointer_factory=_shared_saver,
+        memory=mem,
+    )
+    with TestClient(create_app(task_manager=manager, memory=mem)) as client:
+        put = client.put("/v1/memory/facts/nickname", json={"value": "用户叫小明"})
+        assert put.status_code == 200, put.text
+
+        # 任务 1：新线程，跑出对话历史
+        r1 = client.post(
+            "/v1/tasks", json={"task_input": "我叫小明", "max_steps": 5, "thread_id": "s1"}
+        )
+        assert r1.status_code == 202
+        id1 = r1.json()["task_id"]
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            b1 = client.get(f"/v1/tasks/{id1}").json()
+            if b1["status"] in TERMINAL:
+                break
+            time.sleep(0.02)
+        assert b1["status"] == "completed", b1
+
+        # 任务 2：同一 thread 续聊 -> 注入近期对话
+        r2 = client.post(
+            "/v1/tasks", json={"task_input": "我昨天说了什么", "max_steps": 5, "thread_id": "s1"}
+        )
+        assert r2.status_code == 202
+        id2 = r2.json()["task_id"]
+        deadline = time.time() + 5.0
+        while time.time() < deadline:
+            b2 = client.get(f"/v1/tasks/{id2}").json()
+            if b2["status"] in TERMINAL:
+                break
+            time.sleep(0.02)
+        assert b2["status"] == "completed", b2
+        out2 = (b2.get("result") or {}).get("output") or ""
+        assert "[近期对话]" in out2  # 短期对话层真实注入
+        assert "我叫小明" in out2  # 上一任务的对话内容在 recent 里

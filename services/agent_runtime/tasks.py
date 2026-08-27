@@ -98,14 +98,46 @@ class TaskManager:
         asyncio.create_task(self._execute(task))
         return task
 
+    async def _recent_messages(self, checkpointer, thread_id: str, limit: int = 6) -> list[str]:
+        """M1：取该线程已持久化的近期对话（user/assistant），供短期对话层注入。
+
+        续聊（同一 thread 复用）时才有历史；新线程返回空列表。
+        checkpointer.aget 对无快照线程返回 None，防御性兜底。
+        """
+        try:
+            snapshot = await checkpointer.aget({"configurable": {"thread_id": thread_id}})
+        except Exception:  # noqa: BLE001 - 不同 saver 实现的 aget 行为差异，防御兜底
+            return []
+        if snapshot is None:
+            return []
+        # MemorySaver 的 checkpoint 用 channel_values 存状态值（dict）；saver 实现差异大，做防御
+        values = None
+        if isinstance(snapshot, dict):
+            values = snapshot.get("channel_values") or snapshot.get("values")
+        else:
+            values = getattr(snapshot, "values", None)
+        if not values:
+            return []
+        msgs = values.get("messages") or []
+        rows = [
+            f"{m.role}: {m.content}"
+            for m in msgs
+            if getattr(m, "role", None) in ("user", "assistant")
+        ]
+        return rows[-limit:]
+
     async def _execute(self, task: TaskRecord) -> None:
         task.status = "running"
         try:
             checkpointer = await self._checkpointer_factory()
             memory_context = None
             if self._memory is not None:
-                # F4.3：任务开始时按 task_input 召回向量记忆 + 全部长期事实，拼成上下文注入
-                memory_context = await self._memory.build_context(query=task.task_input)
+                # M1（F4.3）：任务开始时按 task_input 召回向量记忆 + 相关长期事实，
+                # 并把该线程的近期对话取出传入 recent——三层记忆真正参与上下文工程
+                recent = await self._recent_messages(checkpointer, task.thread_id)
+                memory_context = await self._memory.build_context(
+                    query=task.task_input, recent=recent
+                )
             agent = build_react_agent(
                 self._llm,
                 self._registry,
