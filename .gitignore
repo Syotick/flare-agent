@@ -1,0 +1,59 @@
+# ---- Environments & Secrets (never commit) ----
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+credentials*.json
+secrets.yaml
+.credentials.yaml
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ---- Node / frontend ----
+node_modules/
+.pnpm-store/
+.yarn/cache/
+coverage/
+out/
+dist-web/
+
+# ---- Data / runtime (never commit user data) ----
+data/
+logs/
+*.log
+.tmp/
+storage/
+workspaces/
+*.sqlite3
+*.duckdb
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---- Cloud (local tooling state) ----
+.terraform/
+terraform.tfstate*
+plan.out
+kubeconfig*
