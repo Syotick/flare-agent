@@ -28,6 +28,26 @@ class AlwaysToolProvider:
         yield resp.content
 
 
+class FixedDecisionProvider:
+    """固定决策序列的测试桩：队列用完后按最后一次观察收尾。"""
+
+    model = "fixed"
+
+    def __init__(self, decisions: list[dict]) -> None:
+        self._queue = list(decisions)
+
+    async def chat(self, messages, *, model=None, temperature=None, max_tokens=None) -> LLMResponse:
+        if self._queue:
+            content = json.dumps(self._queue.pop(0))
+        else:
+            content = json.dumps({"action": "final", "answer": f"完成: {messages[-1].content}"})
+        return LLMResponse(content=content, model=self.model, usage=LLMUsage())
+
+    async def stream(self, messages, *, model=None, temperature=None):
+        resp = await self.chat(messages, model=model, temperature=temperature)
+        yield resp.content
+
+
 async def test_react_loop_completes_with_tool() -> None:
     agent = build_react_agent(
         MockModelProvider(), create_default_registry(), checkpointer=MemorySaver()
@@ -45,6 +65,41 @@ async def test_budget_guard_stops_runaway() -> None:
     result = await agent.ainvoke({"task_input": "x"}, {"configurable": {"thread_id": "t2"}})
     assert result["status"] == "budget_exceeded"
     assert result["step_count"] == 2
+
+
+async def test_tool_then_final_with_min_budget() -> None:
+    """F2: max_steps=1 时，最后一次工具观察必须还能让模型收尾（修复 off-by-one）。"""
+    agent = build_react_agent(
+        MockModelProvider(), create_default_registry(), max_steps=1, checkpointer=MemorySaver()
+    )
+    result = await agent.ainvoke({"task_input": "hi"}, {"configurable": {"thread_id": "t-min"}})
+    assert result["status"] == "completed"
+    assert "echo: hi" in result["output"]
+
+
+async def test_unknown_tool_is_observed_not_crash() -> None:
+    """F1: 模型调用未知工具 → 结构化失败观察回灌，任务不崩、模型可重试。"""
+    provider = FixedDecisionProvider(
+        [{"action": "call_tool", "tool": {"name": "no_such_tool", "args": {}}}]
+    )
+    agent = build_react_agent(provider, create_default_registry(), checkpointer=MemorySaver())
+    result = await agent.ainvoke({"task_input": "x"}, {"configurable": {"thread_id": "t-unknown"}})
+    assert result["status"] == "completed"
+    joined = "\n".join(m.content for m in result["messages"])
+    assert "UNKNOWN_TOOL" in joined
+    assert "no_such_tool" in joined
+
+
+async def test_invalid_args_is_observed_not_crash() -> None:
+    """F1: 模型参数非法 → INVALID_ARGS 观察回灌，任务不崩。"""
+    provider = FixedDecisionProvider(
+        [{"action": "call_tool", "tool": {"name": "echo", "args": {}}}]
+    )
+    agent = build_react_agent(provider, create_default_registry(), checkpointer=MemorySaver())
+    result = await agent.ainvoke({"task_input": "x"}, {"configurable": {"thread_id": "t-invalid"}})
+    assert result["status"] == "completed"
+    joined = "\n".join(m.content for m in result["messages"])
+    assert "INVALID_ARGS" in joined
 
 
 async def test_checkpoint_isolates_threads() -> None:
