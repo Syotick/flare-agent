@@ -38,8 +38,8 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 - 💡 **踩坑经验**：① GitHub Actions 的 YAML 里内联 `run: echo "TODO: xxx: yyy"` 这种「值含冒号+空格」必须用 block scalar（`run: |`），否则 workflow 解析失败（run 0 秒失败、workflow 名变文件路径）。② 分支保护的 required status check context 必须与 GitHub 实际生成的 check-run 名称一致——本项目是 `Required Status Gate`（不是 `CI / Required Status Gate`），名称不匹配会导致 PR mergeStateStatus=BLOCKED。③ gitleaks-action@v2 在 PR 模式需要 workflow `permissions: pull-requests: read`，否则 403。
 - **开发规范（强制）**：docs/engineering/01-development-standards.md（分支/提交/评审/测试/CI-CD/发布/SRE/安全）
 - **代码审查（2026-08-27 起）**：Round 1 记录 docs/engineering/03-code-review-r1.md（18 项已处置）；Round 2 记录 docs/engineering/04-code-review-r2.md（F1-F4 全部修复）；后续每轮审查结果都归档到 engineering/
-- **M2 代码结构（2026-08-27）**：services/ 已开工——共享库 flare_common(config/logging/telemetry/errors) + agent_runtime(app工厂+骨架+**LangGraph ReAct 图**：actor↔tool_executor、预算熔断、ToolCallDecision 决策契约、SQLite checkpoint) + tools_gateway(ToolRegistry+echo, async ToolResult+jsonschema 校验) + model_gateway(ModelProvider抽象+mock) + rag/sandbox 占位；pip install -e . 可安装；pytest 25 全绿，ruff/black 干净
-- 当前阶段：**M2 开发中**（M0/M1 完成；M2-4a 工具地基 ✅ + M2-4b ReAct 核心循环 ✅，含 Round 2 审查 F1-F4 处置；下一步 M2-4c 任务 API + SSE + Web 接线）
+- **M2 代码结构（2026-08-27）**：services/ 已开工——共享库 flare_common(config/logging/telemetry/errors) + agent_runtime(app工厂+骨架+**LangGraph ReAct 图**(actor↔tool_executor、预算熔断、ToolCallDecision 决策契约、SQLite checkpoint)+**任务API**(POST /v1/tasks + SSE)) + tools_gateway(ToolRegistry+echo) + model_gateway(ModelProvider+mock) + **web(Console: Vite+React+TS, services/web)** + rag/sandbox 占位；pip install -e . 可安装；pytest 29 全绿，ruff/black 干净；make web-dev/web-build 管前端
+- 当前阶段：**M2 完成核心闭环**（M2-4a 工具地基 ✅ + M2-4b ReAct 核心 ✅ + M2-4c 任务API/SSE ✅ + M2-4e Web Console ✅；Round 2 审查 F1-F4 已处置）。下一步：M3 RAG 知识库 + 记忆体系，或先收 M2（单用户 E2E 验收 + CI 实跑）
 
 ## 4. 已做决策（按时间倒序，最新在上）
 
@@ -71,7 +71,7 @@ OpenAI Codex / Claude Code / DeepSeek Harness，估算并发 **百万级**，部
 
 - M0 项目准备（Git/仓库/文档/记忆）✅
 - M1 需求与架构评审 ✅（ADR ×15、模块设计、压测方案、评审记录）
-- M2 核心 Agent 引擎（agent loop + 工具系统 + 会话）🔨 进行中：M2-4a 工具地基 ✅，M2-4b ReAct 核心循环 ✅，M2-4c 任务 API+SSE 待做
+- M2 核心 Agent 引擎（agent loop + 工具系统 + 会话）🔨 核心闭环 ✅（工具/ReAct/任务API/SSE/Web Console）
 - M3 RAG 知识库 + 记忆体系
 - M4 多模型路由 + 推理服务 + 成本控制
 - M5 云原生部署（阿里云 ACK + OSS + 可观测）+ 压测

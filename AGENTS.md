@@ -28,9 +28,9 @@
 
 ## 当前进度
 - 阶段 0/1 完成：Git 仓库（已公开 Syotick/flare-agent）+ 文档体系 + 记忆 + M1 设计评审（ADR ×15、模块设计、压测方案）
-- **M2 开发中**：services/ 已开工——flare_common 共享库 / agent_runtime(app 工厂+骨架+LangGraph ReAct 图: actor↔tool_executor、预算熔断、ToolCallDecision、SQLite checkpoint) / tools_gateway(ToolRegistry+echo, async+jsonschema) / model_gateway(ModelProvider+mock)；conda env flare-agent；pytest 25 全绿
+- **M2 核心闭环完成**：flare_common / agent_runtime(app 工厂+ReAct 图+任务 API+SSE) / tools_gateway / model_gateway / **web(Console: Vite+React)**；conda env flare-agent；pytest 29 全绿；make web-dev / web-build
 - 代码审查：R1 记录 docs/engineering/03-code-review-r1.md（18 项处置）；R2 记录 docs/engineering/04-code-review-r2.md（F1-F4 修复）
-- 下一步：M2-4c 任务 API + SSE 流式 + Web 接线
+- 下一步：M3 RAG 知识库 + 记忆体系（或先做单用户 E2E 验收）
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）
