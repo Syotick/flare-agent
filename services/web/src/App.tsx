@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createTask, getTask, listTasks } from "./api";
-import { Composer, SidePanel, renderItem } from "./components";
+import { Composer, Sidebar, renderItem } from "./components";
 import type { Item } from "./types";
 
 let nextId = 1;
@@ -36,7 +36,7 @@ export default function App() {
   const [items, setItems] = useState<Item[]>([]);
   const [tasks, setTasks] = useState<import("./api").TaskDetail[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [statusText, setStatusText] = useState("空闲");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const lastToolId = useRef<number | null>(null);
   const lastAssistantId = useRef<number | null>(null);
@@ -49,26 +49,22 @@ export default function App() {
     refreshHistory();
   }, []);
 
-  // 刷新恢复：从 URL #task= 重连
+  // 刷新恢复
   useEffect(() => {
     const hash = window.location.hash.match(/task=([a-f0-9]+)/);
     if (hash) {
       const tid = hash[1];
       setActiveTaskId(tid);
       setRunning(true);
-      setStatusText("正在恢复会话…");
       getTask(tid)
         .then((d) => {
-          if (d.status !== "pending" && d.status !== "running") {
-            setRunning(false);
-            setStatusText(d.status);
-          }
+          if (d.status !== "pending" && d.status !== "running") setRunning(false);
         })
         .catch(() => setRunning(false));
     }
   }, []);
 
-  // SSE 生命周期（卸载/切换自动 close）
+  // SSE 生命周期
   useEffect(() => {
     if (!activeTaskId) return;
     let finished = false;
@@ -77,7 +73,6 @@ export default function App() {
     const stall = window.setTimeout(() => {
       es.close();
       setRunning(false);
-      setStatusText("连接超时");
     }, 30000);
 
     es.addEventListener("step", (ev) => {
@@ -153,17 +148,18 @@ export default function App() {
         );
       }
       if (data) {
-        const tone: "info" | "warn" | "error" =
-          data.status === "completed" ? "info" : data.status === "failed" ? "error" : "warn";
-        const msg =
-          "任务结束 · " +
-          data.status +
-          (data.result ? " · 步骤 " + data.result.step_count : data.error ? " · " + data.error : "");
-        setItems((prev) => [...prev, { id: nextId++, kind: "status", text: msg, tone }]);
+        setItems((prev) => [
+          ...prev,
+          {
+            id: nextId++,
+            kind: "status",
+            text: "task " + data.status + (data.result ? " · " + data.result.step_count + " steps" : ""),
+            tone: data.status === "completed" ? "info" : data.status === "failed" ? "error" : "warn",
+          },
+        ]);
       }
       es.close();
       setRunning(false);
-      setStatusText(data?.status ?? "结束");
       refreshHistory();
     });
 
@@ -172,10 +168,9 @@ export default function App() {
       es.close();
       setRunning(false);
       if (!closed && !finished) {
-        setStatusText("连接中断");
         setItems((prev) => [
           ...prev,
-          { id: nextId++, kind: "status", text: "SSE 连接中断", tone: "error" },
+          { id: nextId++, kind: "status", text: "connection lost", tone: "error" },
         ]);
       }
     };
@@ -209,10 +204,8 @@ export default function App() {
     setRunning(true);
     setInput("");
     setItems((prev) => [...prev, { id: nextId++, kind: "user", text }]);
-    setStatusText("提交中…");
     try {
       const created = await createTask(text, maxSteps, threadId || undefined);
-      setStatusText("运行中 · " + created.task_id);
       rememberTask(created.task_id);
       setActiveTaskId(created.task_id);
       setItems((prev) => [
@@ -220,13 +213,12 @@ export default function App() {
         {
           id: nextId++,
           kind: "status",
-          text: "已提交 · task " + created.task_id + " · 后台执行中",
+          text: "submitted · " + created.task_id,
           tone: "info",
         },
       ]);
     } catch (err) {
       setRunning(false);
-      setStatusText("提交失败");
       setItems((prev) => [
         ...prev,
         {
@@ -242,26 +234,34 @@ export default function App() {
   const cancel = () => {
     setActiveTaskId(null);
     setRunning(false);
-    setStatusText("已取消");
     setItems((prev) => [
       ...prev,
-      { id: nextId++, kind: "status", text: "已取消", tone: "warn" },
+      { id: nextId++, kind: "status", text: "cancelled", tone: "warn" },
     ]);
   };
 
   const pickTask = (taskId: string) => {
     setRunning(true);
-    setStatusText("正在加载 " + taskId);
     setActiveTaskId(taskId);
+    setSidebarOpen(false);
     rememberTask(taskId);
     getTask(taskId)
       .then((d) => {
         if (d.status !== "pending" && d.status !== "running") {
           setRunning(false);
-          setStatusText(d.status);
         }
       })
       .catch(() => setRunning(false));
+  };
+
+  const newChat = () => {
+    setItems([]);
+    setActiveTaskId(null);
+    setRunning(false);
+    setInput("");
+    const url = new URL(window.location.href);
+    url.hash = "";
+    window.history.replaceState(null, "", url.toString());
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -271,64 +271,71 @@ export default function App() {
     }
   };
 
+  const hasContent = items.length > 0;
+
   return (
     <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          <span className="orb" />
-          <h1>Flare</h1>
-          <span className="tag">Agent Console</span>
-        </div>
-        <div className="meta">
-          {activeTaskId && (
-            <span className="pill">
-              <span className={"pdot " + (running ? "running" : "idle")} />
-              {statusText}
-            </span>
-          )}
-        </div>
-      </header>
+      <Sidebar
+        tasks={tasks}
+        activeTaskId={activeTaskId}
+        onPick={pickTask}
+        onNew={newChat}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <div className="body">
-        <main className="chatarea">
-          <div className="messages">
-            {items.length === 0 && (
-              <div className="welcome">
-                <div className="welcome-orb" />
-                <div className="welcome-title">你好，我是 Flare</div>
-                <div className="welcome-sub">
-                  一个可上线的 AI Agent 平台。给我一个任务，我会思考、调用工具、观察并给出结论。
-                </div>
-                <div className="welcome-hints">
-                  <span>试试：帮我 echo 一句问候语</span>
-                  <span>工具调用会以内联卡片展示</span>
-                </div>
-              </div>
-            )}
-            {items.map((it) => renderItem(it))}
-            {running && items.length > 0 && (
-              <div className="thinking">
-                <span className="spinner" />
-                <span>执行中…</span>
-              </div>
-            )}
-            <div ref={endRef} />
+      <div className="main">
+        {/* 顶栏 */}
+        <header className="header">
+          <button className="menu-btn" onClick={() => setSidebarOpen(true)}>
+            <span className="menu-lines" />
+          </button>
+          <div className="header-center">
+            <span className="orb" />
+            <h1>Flare</h1>
           </div>
+          <div className="header-right" />
+        </header>
+
+        {/* 对话区 */}
+        <div className="chat">
+          {!hasContent ? (
+            <div className="welcome">
+              <div className="welcome-orb" />
+              <h2>有什么可以帮你的？</h2>
+              <p className="welcome-sub">
+                Flare 是一个可上线的 AI Agent 平台。<br />
+                给我一个任务，我会思考、调用工具、观察并给出结论。
+              </p>
+            </div>
+          ) : (
+            <div className="msgs">
+              {items.map((it) => renderItem(it))}
+              {running && (
+                <div className="thinking">
+                  <span className="spinner" />
+                  thinking…
+                </div>
+              )}
+              <div ref={endRef} />
+            </div>
+          )}
+
+          {/* 输入栏 */}
           <Composer
             value={input}
             onChange={setInput}
             onSend={send}
             onStop={cancel}
             onKeyDown={onKeyDown}
-            disabled={running}
+            disabled={false}
             running={running}
             maxSteps={maxSteps}
             setMaxSteps={setMaxSteps}
             threadId={threadId}
             setThreadId={setThreadId}
           />
-        </main>
-        <SidePanel tasks={tasks} activeTaskId={activeTaskId} onPick={pickTask} />
+        </div>
       </div>
     </div>
   );
