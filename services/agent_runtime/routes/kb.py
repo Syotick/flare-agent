@@ -7,10 +7,18 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from rag.eval.dataset import EvalCase
+from rag.eval.ragas import CoverageProxyJudge, run_ragas
+from rag.eval.runner import run_retrieval_eval
+from rag.eval import builtin_dataset
 from rag.pipeline import KnowledgeBase
 from rag.schemas import (
     DocumentCreate,
     DocumentSummary,
+    EvalCaseIn,
+    EvalRequest,
+    EvalResponse,
+    EvalStrategyOut,
     IngestResponse,
     SearchHitResponse,
 )
@@ -56,5 +64,42 @@ def build_kb_router(kb: KnowledgeBase) -> APIRouter:
             )
             for h in hits
         ]
+
+    @router.post("/eval", response_model=EvalResponse)
+    async def run_eval(body: EvalRequest) -> EvalResponse:
+        """M3c：对给定查询集跑检索策略对比评测（只读，不改知识库）。
+
+        - 相关文档按标题解析到当前库中的 doc_id，解析不到的 case 进 skipped（诚实报告）；
+        - cases 缺省用内置评测集（要求相关文档已入库，见 scripts/demo_eval.py）；
+        - strategies 缺省 vector / hybrid / hybrid_rerank 全跑；
+        - judge=proxy 用确定性代理判定（零依赖）；judge=llm 需真实模型（M4）。
+        """
+        if body.cases is not None:
+            cases = [EvalCase(c.query, c.relevant_titles) for c in body.cases]
+            eval_source = cases  # 自定义集 -> 报告 dataset="custom"
+        else:
+            ds = builtin_dataset()
+            cases = ds.cases
+            eval_source = ds  # 内置集 -> 报告 dataset="builtin"
+        strategies = tuple(body.strategies or ["vector", "hybrid", "hybrid_rerank"])
+        report = await run_retrieval_eval(kb, eval_source, k=body.k, strategies=strategies)
+        ragas = None
+        if body.judge == "proxy":
+            ragas = await run_ragas(kb, cases, judge=CoverageProxyJudge(), k=body.k)
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail="RAGAS LLM 判定需要真实模型（配置 FLARE_MODEL_API_KEY 后 M4 接入），当前未配置",
+            )
+        return EvalResponse(
+            dataset=report.dataset,
+            k=report.k,
+            strategies=[
+                EvalStrategyOut(strategy=s.strategy, k=s.k, aggregate=s.aggregate, per_query=s.per_query)
+                for s in report.strategies
+            ],
+            skipped=report.skipped,
+            ragas=ragas,
+        )
 
     return router

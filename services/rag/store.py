@@ -59,6 +59,7 @@ class DocumentMeta:
 class VectorStore(Protocol):
     async def add(self, doc_id: str, title: str, chunks: list[ChunkRecord]) -> None: ...
     async def search(self, vector: list[float], k: int) -> list[SearchHit]: ...
+    async def all_chunks(self) -> list[ChunkRecord]: ...  # M3c：供 BM25 关键词索引构建
     async def list_documents(self) -> list[DocumentMeta]: ...
     async def delete(self, doc_id: str) -> bool: ...
     async def close(self) -> None: ...
@@ -136,6 +137,22 @@ class SqliteVectorStore:
             )
         scored.sort(key=lambda h: h.score, reverse=True)
         return scored[:k]
+
+    async def all_chunks(self) -> list[ChunkRecord]:
+        """M3c：取全部 chunk（构建 BM25 关键词索引用）。开发规模全表读可接受。"""
+        db = await self._db()
+        async with self._lock:
+            cur = await db.execute("SELECT doc_id, chunk_index, text, vector FROM chunks")
+            rows = await cur.fetchall()
+        return [
+            ChunkRecord(
+                doc_id=r["doc_id"],
+                chunk_index=r["chunk_index"],
+                text=r["text"],
+                vector=json.loads(r["vector"]),
+            )
+            for r in rows
+        ]
 
     async def list_documents(self) -> list[DocumentMeta]:
         db = await self._db()

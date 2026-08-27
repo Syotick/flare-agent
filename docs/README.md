@@ -52,6 +52,7 @@
 | [06-functional-architecture.md](./learning/06-functional-architecture.md) | draft | 功能架构（功能域地图/功能清单/核心链路/依赖/NFR），实践+真理 |
 | [07-business-architecture.md](./learning/07-business-architecture.md) | draft | 业务架构（价值主张/能力地图/业务流程/对象/角色/多租户/运营），实践+真理 |
 | [08-technical-architecture.md](./learning/08-technical-architecture.md) | draft | 技术架构（选型/分层/运行机制/数据/集成/部署/安全/权衡），实践+真理 |
+| [09-rag-evaluation-and-hybrid-retrieval.md](./learning/09-rag-evaluation-and-hybrid-retrieval.md) | draft | RAG 评测与混合检索（确定性指标/数据集/RAGAS 式判定/BM25+向量 RRF/重排），M3c 配套 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |
