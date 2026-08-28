@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     task_store: str = "memory"
     otel_endpoint: str = ""
 
+    # M6：SLO 目标（错误预算/告警依据；生产用环境变量覆盖，如 FLARE_SLO_AVAILABILITY=0.99）
+    slo_availability: float = 0.99
+    slo_p95_latency_seconds: float = 5.0
+    slo_period_days: int = 30
+
 
 @lru_cache
 def get_settings() -> Settings:

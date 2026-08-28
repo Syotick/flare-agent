@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -12,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from agent_runtime.tasks import TaskManager
+from flare_common import metrics
 
 
 class TaskCreate(BaseModel):
@@ -60,8 +62,17 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
                 status_code=404,
                 detail={"code": "NOT_FOUND", "message": f"任务不存在: {task_id}"},
             )
+
+        async def _tracked_stream():
+            """M6：流到终态后记录任务结果指标（成功率 + 端到端耗时）。"""
+            started = time.monotonic()
+            async for chunk in manager.stream(task):
+                yield chunk
+            outcome = "succeeded" if task.status == "completed" else "errored"
+            metrics.observe_task(outcome, time.monotonic() - started)
+
         return StreamingResponse(
-            manager.stream(task),
+            _tracked_stream(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

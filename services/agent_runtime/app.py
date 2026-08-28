@@ -7,14 +7,16 @@
 from __future__ import annotations
 
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from agent_runtime.routes.kb import build_kb_router
 from agent_runtime.routes.memory import build_memory_router
+from agent_runtime.routes.ops import build_ops_router
 from agent_runtime.routes.tasks import build_tasks_router
 from agent_runtime.task_store import (
     InMemoryTaskStore,
@@ -23,7 +25,7 @@ from agent_runtime.task_store import (
     TaskStore,
 )
 from agent_runtime.tasks import TaskManager
-from flare_common import __version__
+from flare_common import __version__, metrics
 from flare_common.config import Settings, get_settings
 from flare_common.errors import FlareError
 from flare_common.logging import setup_logging
@@ -128,6 +130,21 @@ def create_app(
     app.add_exception_handler(FlareError, _flare_error_handler)
     app.add_exception_handler(Exception, _unhandled_error_handler)
 
+    @app.middleware("http")
+    async def _http_metrics(request: Request, call_next):
+        """M6：HTTP 可观测性埋点（计数 + 耗时），/metrics 自身不计以免自刷。"""
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            metrics.observe_http(request.method, request.url.path, 500, time.perf_counter() - start)
+            raise
+        if not request.url.path.startswith("/metrics"):
+            metrics.observe_http(
+                request.method, request.url.path, response.status_code, time.perf_counter() - start
+            )
+        return response
+
     # M3a: 知识库 API（入库/列表/检索/删除）
     if kb is not None:
         app.include_router(build_kb_router(kb))
@@ -139,6 +156,9 @@ def create_app(
     # M2-4c: 任务 API（graph + checkpointer 接入 HTTP，端到端回路）
     app.include_router(build_tasks_router(task_manager))
 
+    # M6: 运维 API（SLO 状态 / 错误预算）
+    app.include_router(build_ops_router(settings))
+
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
         return {"status": "ok", "env": settings.env}
@@ -146,5 +166,13 @@ def create_app(
     @app.get("/version", tags=["system"])
     async def version() -> dict[str, str]:
         return {"name": settings.app_name, "version": __version__}
+
+    @app.get("/metrics", tags=["system"])
+    async def metrics_endpoint() -> PlainTextResponse:
+        """Prometheus 文本格式指标（M6）：被 HPA/Prometheus/压测采集。"""
+        return PlainTextResponse(
+            metrics.render_metrics(),
+            media_type="text/plain; version=0.0.4",
+        )
 
     return app

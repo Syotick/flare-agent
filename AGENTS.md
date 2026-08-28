@@ -42,9 +42,10 @@
 - **M3b 分层记忆完成**：services/memory（短期=LangGraph checkpoint 会话；长期=事实库 facts key->value 按 project_id 隔离，开发 SQLite/生产 PG；向量=复用 rag 协议）；F4.3 上下文工程 context.py（截断/摘要/预算优先级）；mem_set/mem_recall 工具；/v1/memory(facts CRUD/notes/search/context)；TaskManager 任务开始按 task_input 自动注入记忆上下文（graph memory_context）；pytest 52 全绿，ruff/black 干净
 - **Web 控制台（M3a/M3b 配套）**：三个工作区（对话 SSE 流式 / 知识库 KnowledgeBaseView / 记忆 MemoryView）；App view 切换；Sidebar 导航可点；api.ts 统一客户端。构建 npm run build→dist(gitignore)，后端 8000 静态托管（非 3080）；dev 用 5173。坑：长 heredoc 写 TSX 截断污染→分段<100行；noUnusedLocals 删未用导入。
 - **Web UX 修复**：用户不暴露 max_steps/thread_id（内部 MAX_STEPS=8；thread_id 自动：send 同步 created.thread_id、pickTask 沿用会话线程、newChat 清空）；切换会话先清 items 再 SSE 回放防残留；hash 恢复续线程。
-- **文档沉淀**：learning/01–11 齐（11=Web 控制台与产品化 UX）；docs/README 索引已登记；CHANGELOG 全量 M1–M5+Web+UX；CLAUDE 里程碑现状已同步。
+- **M6 生产运营**：metrics.py（纯 Python Prometheus 文本格式，/metrics + HTTP 中间件 + 任务埋点，零依赖）+ slo.py（SLO/错误预算/燃烧速率/多窗口告警 14.4x/36x）+ /v1/ops/slo + error-budget；infra/k8s 08-rules + 09-alertmanager + 10-service-monitor；scripts/loadtest.py（进程内 mock 或 --url，p50/p95/p99 vs SLO，报告+门禁退出码）、release_gate.py（健康+版本+预算）、alert_check.py（在线+离线演练）；learning/12。121 测试全绿。坑：dev SQLite checkpointer 长连接锁文件→本地脚本注入 MemorySaver 别抢锁。
+- **文档沉淀**：learning/01–12 齐（12=生产运营 SRE）；docs/README 索引已登记；CHANGELOG 全量 M1–M6+Web+UX；CLAUDE 里程碑现状已同步。
 - 代码审查：R1=engineering/03；R2=engineering/04（F1-F4）；R3=engineering/05（Web 前端 L1-L4+问题2/3）
-- 下一步：M6 生产运营（SLO/告警/压测/扩缩容/回滚演练）+ 服务器到位后的云部署（learning/05 §4.1）
+- 下一步：服务器到位后的云部署（learning/05 §4.1 + 12 §7 回滚演练）+ 生产实测容量/压测数据沉淀
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）

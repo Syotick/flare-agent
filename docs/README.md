@@ -55,6 +55,7 @@
 | [09-rag-evaluation-and-hybrid-retrieval.md](./learning/09-rag-evaluation-and-hybrid-retrieval.md) | draft | RAG 评测与混合检索（确定性指标/数据集/RAGAS 式判定/BM25+向量 RRF/重排），M3c 配套 |
 | [10-model-gateway-and-sandbox.md](./learning/10-model-gateway-and-sandbox.md) | draft | 模型网关与沙箱（OpenAI 兼容供应商/function-calling 映射/重试/沙箱执行），M4 配套 |
 | [11-web-console-and-product-ux.md](./learning/11-web-console-and-product-ux.md) | draft | Web 控制台与产品化 UX（管理页/会话切换语义/工程参数不外露/构建部署），M3a/b+Web 配套 |
+| [12-production-operations-sre.md](./learning/12-production-operations-sre.md) | draft | 生产运营 SRE（SLO/错误预算/告警分级/压测/扩缩容/回滚演练），M6 配套 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |

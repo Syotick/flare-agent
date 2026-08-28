@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: flare-agent-alerting
+  namespace: flare-agent
+spec:
+  route:
+    receiver: "p2-slack"
+    group_by: ["alertname", "namespace"]
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      - matchers:
+          - severity = "critical"
+        receiver: p0-page
+        continue: false
+      - matchers:
+          - severity = "warning"
+        receiver: p2-slack
+        continue: false
+  receivers:
+    - name: p0-page
+      webhook_configs:
+        - url: "http://flare-alert-sink:8080/page" # 替换为真实告警网关（钉钉/飞书/自定义 webhook）
+      email_configs:
+        - to: "oncall@example.com" # 替换为值班邮箱
+          from: "flare-alert@example.com"
+          smarthost: "smtp.example.com:587"
+          require_tls: true
+    - name: p2-slack
+      slack_configs:
+        - api_url: "https://hooks.slack.com/services/REPLACE_ME" # 替换为 Slack/飞书 webhook
+          channel: "#flare-alerts"
+          title: "{{ .GroupLabels.alertname }}"
+          text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+

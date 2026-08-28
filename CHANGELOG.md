@@ -37,6 +37,15 @@
 - 新会话第 2 条消息开新线程的上下文断裂：send 成功后同步服务端生成的 thread_id
 - 刷新（hash 恢复）后不续线程：恢复时沿用会话的 thread_id
 
+### Added（M6 生产运营）
+- 可观测性：纯 Python 指标注册表（flare_common/metrics.py，Counter/Histogram + Prometheus 文本格式）、HTTP 指标中间件、任务结果埋点、/metrics 端点（零外部依赖）
+- SLO/错误预算：flare_common/slo.py（SLO 目标/错误预算/燃烧速率/多窗口告警分级），环境变量 FLARE_SLO_* 可调
+- 运维 API：/v1/ops/slo（三个 SLO 状态 + 分级）、/v1/ops/error-budget
+- 告警基建：infra/k8s/08-prometheus-rules.yaml（燃烧速率/延迟/5xx 告警）、09-alertmanager.yaml（P0→page/P2→slack 路由）、10-service-monitor.yaml（采集 /metrics）
+- 压测：scripts/loadtest.py（进程内 mock 可跑 / 对线上 URL 打流量，p50/p95/p99+成功率 vs SLO，报告落 data/loadtest_report.json，未达标退出码 1）
+- 发布门禁：scripts/release_gate.py（健康+版本+错误预算，放行/阻断）+ 回滚演练 runbook（learning/12 §7）
+- 告警检查：scripts/alert_check.py（在线读 /v1/ops/slo + 离线多窗口燃烧速率演练）
+
 ### Docs
-- 教学文档 learning/01–11（面试题库/RAG 入库/分层记忆/进阶开发/生产部署/四视图架构/RAG 评测/模型网关与沙箱/Web 控制台与产品化 UX）
+- 教学文档 learning/01–12（面试题库/RAG 入库/分层记忆/进阶开发/生产部署/四视图架构/RAG 评测/模型网关与沙箱/Web 控制台与产品化 UX/生产运营 SRE）
 - 架构决策 ADR 0001–0015；工程规范与三轮代码审查记录；Web Console 功能清单

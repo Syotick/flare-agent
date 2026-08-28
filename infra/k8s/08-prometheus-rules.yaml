@@ -1,0 +1,64 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: flare-agent-sre
+  namespace: flare-agent
+  labels:
+    app: flare-agent
+    prometheus: kube-prometheus
+spec:
+  groups:
+    - name: flare-slo-alerts
+      rules:
+        # P0：5 分钟窗口错误预算高速烧穿（燃烧速率 > 36x，约 5 分钟内消耗 2.5% 预算）
+        - alert: FlareErrorBudgetBurnFast
+          expr: |
+            (
+              sum(rate(flare_http_requests_total{status=~"5.."}[5m]))
+              / (sum(rate(flare_http_requests_total[5m])) * 0.01)
+            ) > 36
+          labels:
+            severity: critical
+          annotations:
+            summary: "Flare 错误预算高速烧穿（P0）"
+            description: "5 分钟窗口燃烧速率超 36x，错误预算即将耗尽，立即处理。"
+
+        # P2：1 小时窗口持续烧穿（燃烧速率 > 14.4x）
+        - alert: FlareErrorBudgetBurnSlow
+          expr: |
+            (
+              sum(rate(flare_http_requests_total{status=~"5.."}[1h]))
+              / (sum(rate(flare_http_requests_total[1h])) * 0.01)
+            ) > 14.4
+          labels:
+            severity: warning
+          annotations:
+            summary: "Flare 错误预算持续烧穿（P2）"
+            description: "1 小时窗口燃烧速率超 14.4x，按当前速率预算约 2 天内耗尽。"
+
+        # P0：延迟 p95 超过 5s SLO
+        - alert: FlareLatencyP95Exceeded
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(flare_http_request_duration_seconds_bucket[5m]))
+            ) > 5
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Flare 延迟 p95 超 SLO（P0）"
+            description: "5 分钟窗口 p95 延迟 > 5s 且持续 10 分钟。"
+
+        # P2：5xx 比例告警（5 分钟窗口 > 5%）
+        - alert: FlareHigh5xxRate
+          expr: |
+            sum(rate(flare_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(flare_http_requests_total[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Flare 5xx 比例偏高（P2）"
+            description: "5 分钟窗口 5xx 比例 > 5%，请检查后端依赖。"
+
