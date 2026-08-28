@@ -37,6 +37,15 @@
 - 演示脚本 scripts/demo_subagent.py；教学文档 learning/14-multi-agent.md（已登记 docs/README）
 - 测试：新增 9 个（test_subagent，含 max_active>=2 证明真并发 + 超时护栏），全量 152 全绿，ruff/black 干净
 
+### Fixed（Round 6 审查，2026-08-28）
+- M1 图内工具 schema 冻结：graph.actor 每轮用当前 registry 重建 system 工具清单（原位替换）——mcp_connect 中途注册的新工具同任务内对模型可见可调；补 ReAct 图端到端用例
+- M2 SSE 跨 chunk 拆分：新增 _split_sse_events 增量切分（只消费空行结尾的完整事件，残余保留 buffer）；testing.py 支持 sse_chunk 分块写出 + sse_response_delay
+- M3 MCP 超时可配置：McpServerConfig.timeout → _make_client → build_transport 透传（此前 McpClient._timeout 实际未达传输层）；202 显式 Content-Length:0
+- M4 register_all(server_name=...) 过滤（mcp_connect 只注册指定服务器）；M5 新增 McpGateway.status() 只读快照（mcp_list 不再摸私有成员）；M6 connect/register 动作入审计；M7 MCP 输出观察限长 2000 + artifacts.full_content 全量
+- 文档：白名单默认关明示（gateway + learning/13）；竞品文档 v1.1（决策时点快照标注 + MCP/Skills/多Agent 已落地 + DSH star 改定性 + 措辞留余地）；归档 docs/engineering/07-code-review-r6.md
+- flaky 修复：list_facts ORDER BY updated_at DESC, rowid DESC 确定性 tie-breaker（test_mem_recall_is_budgeted 14/14 × 3 稳定）
+- 测试：新增 8 个 MCP 回归（M1-M7），全量 160 全绿，ruff/black 干净
+
 ### Added（MCP 客户端 + Skills，FR-2/FR-3，2026-08-28）
 - MCP 客户端（services/mcp）：JSON-RPC 2.0 协议层（零依赖）+ McpClient（initialize 握手 / tools/list / tools/call）+ 双传输（Streamable HTTP / HTTP+SSE，httpx）；协议层与传输层分离，传输可插拔
 - MCP 工具适配：外部工具 → ToolRegistry.Tool（命名空间 mcp__<server>__<tool>，inputSchema 复用统一校验层），Agent 原生 function-calling 直接调用

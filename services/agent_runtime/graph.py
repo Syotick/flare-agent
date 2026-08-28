@@ -116,9 +116,16 @@ def build_react_agent(
             }
         messages = list(state.get("messages", []))
         task_input = state.get("task_input", "")
-        if not messages:
-            # R1：首轮注入工具 schema（system 消息），真实模型才能看到并自主调用工具
-            messages.append(LLMMessage(role="system", content=_build_tool_schema(registry)))
+        # R1/M1-fix：每次 actor 进入都用当前 registry 重建 system 工具清单——
+        # mcp_connect 中途注册的新工具（mcp__*）才能对模型可见，否则 function-calling
+        # schema 冻结在首轮，同任务内新工具"假接线"（直接路径通、集成路径断）。
+        # 保持仅一条 system 消息（原位替换，不污染历史）。
+        sys_msg = LLMMessage(role="system", content=_build_tool_schema(registry))
+        sys_idx = next((i for i, m in enumerate(messages) if m.role == "system"), None)
+        if sys_idx is None:
+            messages.append(sys_msg)
+        else:
+            messages[sys_idx] = sys_msg
         # M1：续聊（同一 thread 复用）时把本任务的输入作为新 user 消息追加；
         # 判定标准 = 是否已有以本任务输入结尾的 user 消息（同一任务内不会重复注入）
         already_injected = any(

@@ -65,10 +65,10 @@ class McpTransport(Protocol):
 
 
 def _parse_sse(text: str) -> list[tuple[str, str]]:
-    """解析 SSE 文本为 [(event, data)] 列表（MCP 响应的事件流）。
+    """解析一段完整的 SSE 文本为 [(event, data)] 列表（MCP 响应的事件流）。
 
     SSE 规范：以空行分隔事件；data: 行累积为 data 字段；event: 行指定事件名；
-    事件名缺省为 "message"。
+    事件名缺省为 "message"。调用方应保证 text 是"以空行结尾的完整事件块"。
     """
     events: list[tuple[str, str]] = []
     event_name = "message"
@@ -90,6 +90,32 @@ def _parse_sse(text: str) -> list[tuple[str, str]]:
     if data_lines:
         events.append((event_name, chr(10).join(data_lines)))
     return events
+
+
+def _split_sse_events(text: str) -> tuple[list[tuple[str, str]], str]:
+    """增量切分 SSE 流（M2-fix）：只消费以空行结尾的完整事件块，残余留给下一次。
+
+    真实服务器走 chunked 传输时，事件会跨 chunk 拆分——若每个 chunk 都独立解析
+    （旧实现 buffer 逐 chunk 清空），半截事件会被丢弃导致响应永远等不到。这里
+    把未闭合（无空行结尾）的部分保留在 buffer，等后续 chunk 补全。
+    空行分隔符兼容 \n\n 与 \r\n\r\n。
+
+    返回 (完整事件列表, 残余文本)。
+    """
+    events: list[tuple[str, str]] = []
+    remaining = text
+    while True:
+        idx = remaining.find("\n\n")
+        sep = 2
+        if idx == -1:
+            idx = remaining.find("\r\n\r\n")
+            sep = 4
+            if idx == -1:
+                break
+        block = remaining[:idx]
+        remaining = remaining[idx + sep :]
+        events.extend(_parse_sse(block))
+    return events, remaining
 
 
 def _first_json(data: str) -> Any:
@@ -212,11 +238,11 @@ class SseTransport:
                 buffer = ""
                 async for chunk in resp.aiter_text():
                     buffer += chunk
-                    events = _parse_sse(buffer)
-                    # 简化：逐事件处理（SSE 行级解析对分块边界容忍）
+                    # M2-fix：只消费以空行结尾的完整事件，半截事件保留在 buffer，
+                    # 等后续 chunk 补全（真实 chunked 传输下事件必跨块拆分）
+                    events, buffer = _split_sse_events(buffer)
                     for event, data in events:
                         self._handle_event(event, data)
-                    buffer = ""  # 简化：SSE 行级解析对分块边界容忍
         except Exception as exc:  # noqa: BLE001 - 后台任务异常显式化
             logger.warning("MCP SSE 读取器退出: %s", exc)
             for fut in self._responses.values():
@@ -286,13 +312,20 @@ class SseTransport:
 
 
 def build_transport(
-    url: str, *, transport: str = "streamable_http", headers: dict[str, str] | None = None
+    url: str,
+    *,
+    transport: str = "streamable_http",
+    headers: dict[str, str] | None = None,
+    timeout: float = _DEFAULT_TIMEOUT,
 ) -> McpTransport:
-    """按配置构造传输层（streamable_http | sse；未知值 fail-fast）。"""
+    """按配置构造传输层（streamable_http | sse；未知值 fail-fast）。
+
+    M3-fix：透传 timeout（此前 McpClient._timeout 未到达传输层，硬编码默认）。
+    """
     if transport == "streamable_http":
-        return StreamableHttpTransport(url, headers=headers)
+        return StreamableHttpTransport(url, headers=headers, timeout=timeout)
     if transport == "sse":
-        return SseTransport(url, headers=headers)
+        return SseTransport(url, headers=headers, timeout=timeout)
     raise ValueError(f"未知 MCP 传输: {transport!r}（可选 streamable_http|sse）")
 
 
@@ -311,7 +344,7 @@ class McpClient:
     ) -> None:
         self._url = url
         self._transport = transport or build_transport(
-            url, transport=transport_kind, headers=headers
+            url, transport=transport_kind, headers=headers, timeout=timeout
         )
         self._client_name = client_name
         self._timeout = timeout

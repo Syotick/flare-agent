@@ -1,9 +1,11 @@
 # Flare Agent · 功能盘点与竞品对比（Grok / Codex / DSH）
 
-> 版本：v1.0 ｜ 日期：2026-08-28 ｜ 状态：approved ｜ 负责人：Flare 团队
+> 版本：v1.1 ｜ 日期：2026-08-28 ｜ 状态：approved ｜ 负责人：Flare 团队
 > 目的：对当前 8 大功能域做一次对照 FR 的能力盘点，并与 Grok / Codex / DeepSeek Harness（DSH）
 > 做横向对比，据此确定下一步开发优先级。
 > 方法：对比基于公开信息 + 对 DSH 的一手使用经验；细节随各产品版本演进会变。
+> ⚠️ **决策时点快照**：本文是 2026-08-28 决策时的状态记录，"⏳"标记的后续进度请以 CHANGELOG.md
+> 与 docs/learning/ 为准（MCP/Skills、多 Agent 并行已先后落地）。
 
 ---
 
@@ -13,18 +15,19 @@
 | --- | --- | --- |
 | 用户/组织 | 多租户 X-Tenant-Id→contextvar 隔离（M5） | ✅；用户体系/SSO/RBAC/配额 ⏳ |
 | 会话任务 | POST 202 + SSE 真流式 + 详情/列表/删除 + 同线程续聊 + hash 恢复（M2/M3b） | ✅；interrupt 审批 ⏳ |
-| Agent 执行 | LangGraph ReAct 循环、工具调用、max_steps 预算熔断、checkpoint 可恢复（M2/M5 PG） | ✅；多 Agent 并行 ⏳ |
+| Agent 执行 | LangGraph ReAct 循环、工具调用、max_steps 预算熔断、checkpoint 可恢复（M2/M5 PG）；多 Agent/Subagent 并行（F1.4，subagent 独立 ReAct 循环 + gather 并行） | ✅ |
 | 知识库 RAG | 入库管线、hybrid（BM25+向量 RRF）+ rerank、溯源、RAG 评测（M3a/c） | ✅；多格式解析/版本化/权限 ⏳ |
 | 记忆 | 三层记忆（短期对话/长期事实/向量）+ 上下文工程预算（M3b） | ✅ |
-| 工具 | 注册表 + JSON Schema 校验 + 失败观察 + schema 注入 system（M2） | ✅；MCP ⏳ / Skills ⏳ |
+| 工具 | 注册表 + JSON Schema 校验 + 失败观察 + schema 注入 system（M2）；MCP 客户端 + 网关（FR-2，双传输/适配/白名单/审计）+ Skills（FR-3，SKILL.md 技能包） | ✅ |
 | 模型网关 | mock + OpenAI 兼容 + function-calling 映射 + 指数重试（M4） | ✅；多模型路由/配额/缓存 ⏳ |
 | 沙箱 | LocalProcessSandbox（超时/输出/内存上限）+ Docker 占位 fail-fast（M4） | ✅；容器强隔离 ⏳ |
 | 管理运维 | /health、错误契约、SLO/错误预算/告警分级/压测/发布门禁/指标（M6） | ✅ 领先 |
 | Web 控制台 | 对话 / 知识库 / 记忆 / 运维中心 四工作区 | ✅ |
 | 工程化 | 121 单测、ruff/black、CI、Dockerfile + K8s 7 清单、reconcile 双写对账（M5） | ✅ |
 
-**能力全景一句话**：一个"模块化单体 + 零依赖本地可跑"的企业级 Agent 平台——编排/工具/记忆/RAG/网关/沙箱/运维/多租户八件套齐了，
-前端控制台四区齐全，运维可观测性反而比多数成熟产品还全。
+**能力全景一句话**：一个"模块化单体 + 零依赖本地可跑"的企业级 Agent 平台——编排/工具/记忆/RAG/网关/沙箱/运维/多租户等能力域骨架已齐，
+前端控制台四区齐全，运维可观测性反而比多数成熟产品还全；用户体系/SSO/RBAC/配额、容器强隔离、CLI/REST 接入形态等仍待逐项落地
+（详见 CHANGELOG 进度）。
 
 ## 2. 与 Grok / Codex / DSH 的对比
 
@@ -36,7 +39,7 @@
   review 模式 + skills（SKILL.md）+ AGENTS.md 项目记忆 + MCP 客户端，付费订阅制（约 $200/月档起）。
 - **DSH（DeepSeek Harness）**：本地优先的 Agent 工程 harness——profile+插件 patch 分层组合；多 Agent 编排是主打
   （subagent/workflow/goal/Ralph，36kr 原文："把 spawn 子 Agent 做成了协议"）；全栈工具（bash/文件/ssh/web/grep/vision）；
-  PTC 模式 + 文件策略沙箱；skills；150k+ star。
+  PTC 模式 + 文件策略沙箱；skills；现象级增长（公开报道 2025 年上线数小时破 3.3 万星，时点具体数字以官方为准）。
 
 ### 2.2 关键维度对比
 
@@ -45,8 +48,8 @@
 | 定位 | 企业级可上线平台 | 实时通用 Agent | 编码 Agent（云并行） | 本地 harness/协议 |
 | 核心循环 | LangGraph ReAct+SSE | 推理+DeepSearch+工具 API | agentic coding+云沙箱 | 会话+多 Agent 编排 |
 | 工具系统 | 注册表+Schema 校验 | Agent Tools API | 文件/bash/Git/MCP/技能 | bash/文件/ssh/web 全栈 |
-| MCP/Skills | ⏳ FR-2/FR-3 未做 | 有工具 API | 有（MCP+skills） | 有 skills |
-| 多 Agent 并行 | ⏳ F1.4 未做 | 少 | 云并行任务 | 主打（子代理/工作流） |
+| MCP/Skills | ✅ FR-2/FR-3 已落地（双传输+网关+技能包） | 有工具 API | 有（MCP+skills） | 有 skills |
+| 多 Agent 并行 | ✅ F1.4 已落地（subagent+并行收集） | 少 | 云并行任务 | 主打（子代理/工作流） |
 | 记忆 | 三层+上下文工程 | 用户级记忆 | AGENTS.md 项目记忆 | 会话压缩+goal 持久化 |
 | RAG/知识库 | hybrid+rerank+评测 | 实时搜索 | 语义搜索（弱） | web_search 工具 |
 | 沙箱 | 本地进程+Docker 占位 | computer-use（浏览器） | 云隔离 VM | 文件策略沙箱+PTC |

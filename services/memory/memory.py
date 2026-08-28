@@ -106,9 +106,11 @@ class MemoryManager:
     async def list_facts(self, *, project_id: str | None = None) -> list[MemoryFact]:
         db = await self._db()
         async with self._lock:
+            # M3b-Round6-fix：快速插入下 time.time() 会碰撞，等值 updated_at 排序不确定
+            # -> 加 rowid DESC 确定性 tie-breaker（后插入的 rowid 更大，视为更新）
             cur = await db.execute(
                 "SELECT project_id, key, value, updated_at FROM facts "
-                "WHERE project_id=? ORDER BY updated_at DESC",
+                "WHERE project_id=? ORDER BY updated_at DESC, rowid DESC",
                 (project_id or self._project_id,),
             )
             rows = await cur.fetchall()

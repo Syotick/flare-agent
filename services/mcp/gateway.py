@@ -36,6 +36,7 @@ class McpServerConfig:
     - headers: 认证/自定义头（如 Authorization: Bearer xxx）
     - tools: 可选工具白名单（None=全部）；调用/注册只放行名单内工具（FR-2.3）
     - enabled: 是否参与本次 connect_all
+    - timeout: 客户端请求超时秒数（M3-fix：可配置；None=走客户端默认 10s）
     """
 
     name: str
@@ -44,6 +45,7 @@ class McpServerConfig:
     headers: dict[str, str] = field(default_factory=dict)
     tools: list[str] | None = None  # None=允许全部；[]=不注册任何工具
     enabled: bool = True
+    timeout: float | None = None  # M3-fix：MCP 请求超时可配置（None=客户端默认）
     transport_impl: McpTransport | None = None  # 测试/定制注入的传输实现（默认按 transport 构造）
 
 
@@ -58,7 +60,9 @@ class McpGateway:
         audit: AuditFn | None = None,
     ) -> None:
         self._configs = {c.name: c for c in configs}
-        self._allowed = allowed_servers  # None=不限制（仅配置内）
+        # M8-fix（文档化）：allowed_servers=None = 白名单关闭（仅限配置内的服务器），
+        # 仅显式传入集合时才启用服务器级白名单——默认关，生产需显式开启
+        self._allowed = allowed_servers
         self._audit = audit
         self._clients: dict[str, McpClient] = {}
         self._registered: set[str] = set()
@@ -90,6 +94,9 @@ class McpGateway:
                 continue
             self._clients[n] = client
             connected.append(n)
+            # M6-fix：连接动作本身入审计（FR-2.3 所有 MCP 操作可审计）
+            if self._audit is not None:
+                self._audit("connect", n, "", {"url": cfg.url, "transport": cfg.transport})
         return connected
 
     async def connect_strict(self) -> None:
@@ -111,10 +118,20 @@ class McpGateway:
             raise McpConnectionError("MCP 连接失败: " + "; ".join(failed))
 
     def _make_client(self, cfg: McpServerConfig) -> McpClient:
-        """构造客户端：优先用注入的 transport_impl（测试），否则按 transport 类型构造。"""
+        """构造客户端：优先用注入的 transport_impl（测试），否则按 transport 类型构造。
+
+        M3-fix：透传 cfg.timeout（可配置超时；None 时 McpClient 用默认 10s）。
+        """
+        kwargs: dict[str, Any] = {}
+        if cfg.timeout is not None:
+            kwargs["timeout"] = cfg.timeout
         if cfg.transport_impl is not None:
-            return McpClient(cfg.url, transport=cfg.transport_impl, headers=cfg.headers or None)
-        return McpClient(cfg.url, transport_kind=cfg.transport, headers=cfg.headers or None)
+            return McpClient(
+                cfg.url, transport=cfg.transport_impl, headers=cfg.headers or None, **kwargs
+            )
+        return McpClient(
+            cfg.url, transport_kind=cfg.transport, headers=cfg.headers or None, **kwargs
+        )
 
     def is_allowed(self, server_name: str) -> bool:
         """服务器级白名单（FR-2.3）：未列入白名单的服务器直接拒绝。"""
@@ -136,10 +153,19 @@ class McpGateway:
             tools = [t for t in tools if t.get("name") in cfg.tools]
         return tools
 
-    async def register_all(self, registry: ToolRegistry) -> list[str]:
-        """把各服务器工具适配注册进 ToolRegistry（幂等，返回新增工具名）。"""
+    async def register_all(
+        self, registry: ToolRegistry, *, server_name: str | None = None
+    ) -> list[str]:
+        """把（指定或全部 enabled）服务器工具适配注册进 ToolRegistry（幂等，返回新增工具名）。
+
+        M4-fix：mcp_connect(name=...) 只连指定服务器时，register_all 也应只注册该
+        服务器——避免遍历未连接服务器刷无谓告警。server_name 缺省=全部。
+        """
+        targets = [server_name] if server_name else list(self._configs)
         registered: list[str] = []
-        for name in self._configs:
+        for name in targets:
+            if name not in self._configs:
+                raise McpConnectionError(f"未知 MCP 服务器: {name}")
             if not self._configs[name].enabled or not self.is_allowed(name):
                 continue
             try:
@@ -149,6 +175,9 @@ class McpGateway:
                 continue
             added = self._register_one(registry, name, tools)
             registered.extend(added)
+            # M6-fix：注册动作本身入审计（FR-2.3 所有 MCP 操作可审计）
+            if added and self._audit is not None:
+                self._audit("register", name, "", {"tools": added})
         return registered
 
     def _register_one(
@@ -189,6 +218,22 @@ class McpGateway:
         except McpError as exc:
             return ToolResult(ok=False, error_code="MCP_CALL_ERROR", content=str(exc))
         return ToolResult(ok=True, content=content)
+
+    def status(self) -> list[dict[str, Any]]:
+        """M5-fix：只读状态快照（mcp_list 等观测用，不摸私有成员）。
+
+        返回每个配置服务器的 name / transport / enabled / connected / tools_registered。
+        """
+        return [
+            {
+                "name": name,
+                "transport": cfg.transport,
+                "enabled": cfg.enabled,
+                "connected": name in self._clients,
+                "tools_registered": list(self._registered_tools.get(name, [])),
+            }
+            for name, cfg in self._configs.items()
+        ]
 
     async def close(self) -> None:
         for client in self._clients.values():

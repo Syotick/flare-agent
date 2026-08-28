@@ -23,7 +23,8 @@ def build_mcp_connect_tool(gateway: McpGateway, registry) -> Tool:
             await gateway.connect_strict()
         else:
             await gateway.connect(name)
-        added = await gateway.register_all(registry)
+        # M4-fix：只连接指定服务器时，register_all 也只注册该服务器（不遍历未连的）
+        added = await gateway.register_all(registry, server_name=name)
         if not added:
             return ToolResult(
                 ok=True,
@@ -52,17 +53,17 @@ def build_mcp_connect_tool(gateway: McpGateway, registry) -> Tool:
 
 def build_mcp_list_tool(gateway: McpGateway) -> Tool:
     async def _list(**kwargs: Any) -> ToolResult:
-        lines = []
-        for name, cfg in gateway._configs.items():
-            connected = name in gateway._clients
-            reg = gateway._registered_tools.get(name, [])
-            lines.append(
-                f"- {name} [{cfg.transport}] connected={connected} tools_registered={len(reg)}"
-            )
-            for t in sorted(reg):
-                lines.append(f"    {t}")
-        if not lines:
+        status = gateway.status()  # M5-fix：只读接口，不摸网关私有成员
+        if not status:
             return ToolResult(ok=True, content="未配置 MCP 服务器（FLARE_MCP_SERVERS 为空）")
+        lines = []
+        for s in status:
+            lines.append(
+                f"- {s['name']} [{s['transport']}] enabled={s['enabled']} "
+                f"connected={s['connected']} tools_registered={len(s['tools_registered'])}"
+            )
+            for t in sorted(s["tools_registered"]):
+                lines.append(f"    {t}")
         return ToolResult(ok=True, content=chr(10).join(lines))
 
     return Tool(

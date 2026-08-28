@@ -139,16 +139,32 @@ class _McpHttpServer(ThreadingHTTPServer):
         tools: list[dict[str, Any]],
         handlers: dict[str, Callable[[dict[str, Any]], str]],
         sse_buffer: _SharedSseBuffer,
+        sse_chunk: bool = False,
+        sse_response_delay: float = 0.0,
     ) -> None:
         super().__init__(server_address, handler)
         self.tools = tools
         self.handlers = handlers
         self.sse_buffer = sse_buffer
+        self.sse_chunk = sse_chunk  # True=SSE 按小片分块写出（模拟真实 chunked 传输）
+        self.sse_response_delay = sse_response_delay  # tools/call 响应延迟秒数（模拟慢服务器）
 
 
 class _Handler(BaseHTTPRequestHandler):
     def log_message(self, *args: Any) -> None:  # 静默访问日志
         return
+
+    def _write_sse(self, data: bytes) -> None:
+        """写 SSE 数据：sse_chunk=True 时逐 2 字节分片 + 小睡，强制跨 chunk 拆事件。"""
+        server: _McpHttpServer = self.server
+        if not server.sse_chunk:
+            self.wfile.write(data)
+            self.wfile.flush()
+            return
+        for i in range(0, len(data), 2):
+            self.wfile.write(data[i : i + 2])
+            self.wfile.flush()
+            time.sleep(0.005)
 
     # --- 请求处理 ---
 
@@ -204,14 +220,13 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
-            self.wfile.write(b"event: endpoint" + b"\n" + b"data: /message" + b"\n\n")
-            self.wfile.flush()
+            # M2：分块写出（sse_chunk=True 时 endpoint/响应事件会被拆到多个 TCP chunk）
+            self._write_sse(b"event: endpoint" + b"\n" + b"data: /message" + b"\n\n")
             while True:
                 line = server.sse_buffer.drain(timeout=30.0)
                 if line is None:
                     break
-                self.wfile.write(line.encode())
-                self.wfile.flush()
+                self._write_sse(line.encode())
             return
         self.send_response(404)
         self.end_headers()
@@ -226,11 +241,15 @@ class _Handler(BaseHTTPRequestHandler):
             payload = {}
         response = self._rpc(payload)
         if self.path == "/message":
-            # SSE 模式：响应经 SSE 流回传，POST 只回 202
-            if response is not None:
-                server.sse_buffer.append(f"data: {json.dumps(response)}\n\n")
+            # SSE 模式：响应经 SSE 流回传，POST 立即回 202（贴近真实流式服务器）
             self.send_response(202)
+            self.send_header("Content-Length", "0")  # 显式空体：让 httpx 立即返回，不等连接关闭
             self.end_headers()
+            if response is not None:
+                # M3 测试支持：tools/call 响应延迟产出（模拟慢服务器），202 已先发出
+                if server.sse_response_delay and (payload or {}).get("method") == "tools/call":
+                    time.sleep(server.sse_response_delay)
+                server.sse_buffer.append(f"data: {json.dumps(response)}\n\n")
             return
         data = json.dumps(response).encode() if response is not None else b""
         self.send_response(200 if response is not None else 202)
@@ -264,7 +283,12 @@ class MemoryMcpServer:
     def with_defaults(cls) -> MemoryMcpServer:
         return cls()
 
-    def start(self) -> MemoryMcpServer:
+    def start(self, *, sse_chunk: bool = False, sse_response_delay: float = 0.0) -> MemoryMcpServer:
+        """启动服务器。
+
+        - sse_chunk=True：SSE 按小片分块写出（M2 跨 chunk 拆分测试）
+        - sse_response_delay>0：tools/call 响应延迟产出秒数（M3 超时测试，模拟慢服务器）
+        """
         sse = _SharedSseBuffer()
         self._httpd = _McpHttpServer(
             ("127.0.0.1", 0),
@@ -272,6 +296,8 @@ class MemoryMcpServer:
             tools=self.tools,
             handlers=self.handlers,
             sse_buffer=sse,
+            sse_chunk=sse_chunk,
+            sse_response_delay=sse_response_delay,
         )
         self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
         self._thread.start()

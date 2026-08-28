@@ -22,6 +22,17 @@ NAMESPACE_PREFIX = "mcp__"
 
 AuditFn = Callable[[str, str, str, dict[str, Any]], None]
 
+# M7-fix：MCP 工具输出给模型观察的内容限长（防撑爆上下文），完整内容放 artifacts
+OBSERVATION_LIMIT = 2000
+
+
+def _truncate_for_observation(content: str) -> tuple[str, str | None]:
+    """观察内容限长：超限截断并附提示；全量内容供 artifacts 使用。"""
+    if len(content) <= OBSERVATION_LIMIT:
+        return content, None
+    head = content[:OBSERVATION_LIMIT]
+    return head + "\n…（输出已截断，完整内容见本工具结果 artifacts.full_content）", content
+
 
 def make_mcp_tool(
     client: McpClient,
@@ -53,7 +64,12 @@ def make_mcp_tool(
             return ToolResult(ok=False, error_code="MCP_TOOL_ERROR", content=str(exc))
         except McpError as exc:
             return ToolResult(ok=False, error_code="MCP_CALL_ERROR", content=str(exc))
-        return ToolResult(ok=True, content=content)
+        # M7-fix：观察内容限长（对照 kb_tools 截断风格），全量进 artifacts
+        shown, full = _truncate_for_observation(content)
+        result = ToolResult(ok=True, content=shown)
+        if full is not None:
+            result.artifacts["full_content"] = full
+        return result
 
     return Tool(name=full_name, description=description, parameters=parameters, func=func)
 

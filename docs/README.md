@@ -41,6 +41,7 @@
 | [03-code-review-r1.md](./engineering/03-code-review-r1.md) | approved | 首轮代码审查记录（18 项处置 + 复查清单） |
 | [04-code-review-r2.md](./engineering/04-code-review-r2.md) | approved | Round 2 审查记录（ReAct 交付：F1-F4 处置 + 复查清单） |
 | [05-code-review-r3.md](./engineering/05-code-review-r3.md) | approved | Round 3 审查记录（Web 前端：L1-L4 + 问题2/3 处置 + 复查清单） |
+| [07-code-review-r6.md](./engineering/07-code-review-r6.md) | approved | Round 6 审查记录（MCP 客户端：M1-M8 集成断点修复 + flaky 修复 + 文档 v1.1） |
 
 ### learning/ 学习与面试
 | 文档 | 状态 | 说明 |

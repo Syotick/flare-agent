@@ -96,6 +96,7 @@ def _build_mcp_gateway(settings: Settings) -> McpGateway:
             headers=dict(item.get("headers") or {}),
             tools=item.get("tools"),  # None=全部；[]=不注册
             enabled=bool(item.get("enabled", True)),
+            timeout=item.get("timeout"),  # M3-fix：MCP 请求超时可配置（None=默认）
         )
         for item in settings.mcp_servers
     ]
