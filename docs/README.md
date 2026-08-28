@@ -58,6 +58,7 @@
 | [11-web-console-and-product-ux.md](./learning/11-web-console-and-product-ux.md) | draft | Web 控制台与产品化 UX（管理页/会话切换语义/工程参数不外露/构建部署），M3a/b+Web 配套 |
 | [12-production-operations-sre.md](./learning/12-production-operations-sre.md) | draft | 生产运营 SRE（SLO/错误预算/告警分级/压测/扩缩容/回滚演练），M6 配套 |
 | [13-mcp-and-skills.md](./learning/13-mcp-and-skills.md) | draft | MCP 客户端与 Skills 机制（JSON-RPC/传输/工具适配/网关/技能包），FR-2/FR-3 配套 |
+| [14-multi-agent.md](./learning/14-multi-agent.md) | draft | 多 Agent / Subagent 并行（任务分解/并行编排/结果聚合/预算护栏），F1.4 配套 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |

@@ -40,6 +40,8 @@ from rag.pipeline import KnowledgeBase
 from sandbox import build_sandbox
 from skills.registry import SkillRegistry
 from skills.skill_tools import build_skill_tools
+from subagent.runtime import SubagentRuntime
+from subagent.sub_tools import build_subagent_tools
 from tools_gateway.builtin import create_default_registry
 
 logger = logging.getLogger(__name__)
@@ -142,9 +144,15 @@ def create_app(
             store=_build_task_store(settings),
         )
 
+    # F1.4：多 Agent 子任务运行时（共享父的 llm/registry，工具注册进同一注册表）
+    subagent_runtime = SubagentRuntime(task_manager.llm, task_manager.registry)
+    for tool in build_subagent_tools(subagent_runtime):
+        task_manager.registry.register(tool)
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         yield
+        await subagent_runtime.close()  # F1.4：取消仍在跑的子任务
         if mcp_gateway is not None:
             await mcp_gateway.close()  # FR-2.3：关闭 MCP 连接池
         if task_manager is not None:

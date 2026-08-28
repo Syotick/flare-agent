@@ -30,6 +30,13 @@
 - 侧栏工作区导航：对话 / 知识库 / 记忆 / 运维，视图切换；api.ts 统一后端 REST/SSE 客户端
 - 运维中心页（OpsView，M6 配套）：SLO 三卡片（可用性/任务成功率/延迟 p95，目标+错误预算进度条+告警分级徽章）、整体状态横幅、Prometheus /metrics 原始指标折叠查看、15s 自动刷新
 
+### Added（多 Agent / Subagent 并行，F1.4，2026-08-28）
+- SubagentRuntime（services/subagent）：子任务 = 独立 ReAct Agent 实例（复用 build_react_agent + MemorySaver 临时 checkpointer），进程内 asyncio 后台任务并发执行；独立预算（max_steps）/独立超时（timed_out）/存活上限 MAX_ACTIVE=64 护栏；spawn / await（shield 超时不打断底层）/ run_subagents（asyncio.gather 并行收集）/ list / close
+- 编排工具：spawn_subagent / await_subagent / list_subagents / run_subagents（并行核心原语，单次上限 16 个 prompt）——父 Agent 拆解任务 → 并行执行 → 自行汇总；失败转结构化 ToolResult
+- 接线：create_app 注入 SubagentRuntime（共享父 llm/registry），TaskManager 暴露 llm/registry 属性
+- 演示脚本 scripts/demo_subagent.py；教学文档 learning/14-multi-agent.md（已登记 docs/README）
+- 测试：新增 9 个（test_subagent，含 max_active>=2 证明真并发 + 超时护栏），全量 152 全绿，ruff/black 干净
+
 ### Added（MCP 客户端 + Skills，FR-2/FR-3，2026-08-28）
 - MCP 客户端（services/mcp）：JSON-RPC 2.0 协议层（零依赖）+ McpClient（initialize 握手 / tools/list / tools/call）+ 双传输（Streamable HTTP / HTTP+SSE，httpx）；协议层与传输层分离，传输可插拔
 - MCP 工具适配：外部工具 → ToolRegistry.Tool（命名空间 mcp__<server>__<tool>，inputSchema 复用统一校验层），Agent 原生 function-calling 直接调用

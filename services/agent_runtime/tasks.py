@@ -22,6 +22,7 @@ from agent_runtime.task_store import InMemoryTaskStore, TaskStore
 from flare_common.tenant import get_tenant_id
 from model_gateway.mock import MockModelProvider
 from tools_gateway.builtin import create_default_registry
+from tools_gateway.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,16 @@ class TaskManager:
         self._memory = memory  # M3b 分层记忆（None 则不做上下文注入）
         self._store: TaskStore = store or InMemoryTaskStore()  # M5：持久化存储
         self._tasks: dict[str, TaskRecord] = {}  # 进程内缓存（同步读 + 持久化写穿）
+
+    @property
+    def registry(self) -> ToolRegistry:
+        """F1.4：供多 Agent 子任务运行时共享同一工具注册表。"""
+        return self._registry
+
+    @property
+    def llm(self):
+        """F1.4：供多 Agent 子任务运行时共享同一模型入口。"""
+        return self._llm
 
     async def create(
         self,

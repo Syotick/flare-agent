@@ -48,7 +48,8 @@
 - 代码审查：R1=engineering/03；R2=engineering/04（F1-F4）；R3=engineering/05（Web 前端 L1-L4+问题2/3）
 - **功能盘点与竞品对比（2026-08-28）**：docs/product/analysis/01-competitive-comparison.md（已登记 docs/README）——8 功能域盘点 + Grok/Codex/DSH 对比；运维治理/三层记忆/RAG评测/多租户领先；三大差距=MCP+Skills、多 Agent 并行、CLI/REST 接入。
 - **MCP 客户端 + Skills（已交付，FR-2/FR-3）**：services/mcp（protocol JSON-RPC 零依赖 + client 双传输 Streamable HTTP/SSE + adapter 工具适配命名空间 mcp__<server>__<tool> + gateway 白名单/认证/审计/幂等注册 + mcp_connect/mcp_list 工具 + testing Fake/真实HTTP）+ services/skills（SKILL.md 技能包 frontmatter 解析 + SkillRegistry 安装/卸载/列表/上下文注入 + skill_list/skill_load）；示例技能 examples/skills/code-review；demo 脚本 scripts/demo_mcp.py/demo_skills.py；learning/13；142 测试全绿。坑：长 heredoc 写代码 \n 会被 JS 转义成真换行（用 chr(10)/拼接）；pyproject packages.find 补 mcp*/skills*；SSE endpoint 相对路径用 urljoin。
-- 下一步：多 Agent/Subagent 并行（F1.4）→ CLI 与 OpenAI 兼容 REST API（F9.2/9.3）→ 服务器到位后的云部署 + 压测实测容量
+- **多 Agent/Subagent 并行（已交付，F1.4）**：services/subagent（SubagentRuntime 子任务=独立 ReAct Agent 实例 + MemorySaver 临时 checkpointer + asyncio.gather 并行 + 独立预算/超时/MAX_ACTIVE=64 护栏 + spawn/await(list shield 超时不打断)/run_subagents/list/close）+ 编排工具 spawn_subagent/await_subagent/list_subagents/run_subagents（并行核心原语，单次上限16 prompt）+ create_app 接线（TaskManager 加 llm/registry 属性）；demo 脚本 scripts/demo_subagent.py；learning/14；152 测试全绿。坑：test_memory test_mem_recall_is_budgeted 时序敏感 flaky（单独跑过，非本次改动引起）；async def 不能内联表达式。
+- 下一步：CLI 与 OpenAI 兼容 REST API（F9.2/9.3）→ 服务器到位后的云部署 + 压测实测容量
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）

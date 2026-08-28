@@ -13,7 +13,7 @@ license = { text = "MIT" }
 
 [tool.setuptools.packages.find]
 where = ["services"]
-include = ["flare_common*", "agent_runtime*", "model_gateway*", "memory*", "rag*", "tools_gateway*", "sandbox*", "mcp*", "skills*"]
+include = ["flare_common*", "agent_runtime*", "model_gateway*", "memory*", "rag*", "tools_gateway*", "sandbox*", "mcp*", "skills*", "subagent*"]
 
 [tool.black]
 line-length = 100
