@@ -19,7 +19,8 @@
 6. 阿里云 OSS 存对象
 7. 强企业级技术栈，云原生
 
-## 已确认决策（2026-08-27）
+## 已确认决策（2026-08-27 / 2026-08-28）
+- 2026-08-28：下一步开发点 = MCP 客户端 + Skills（FR-2/FR-3）→ 多 Agent 并行（F1.4）→ CLI/REST 接入（F9.2/9.3）
 - 技术栈：Python + LangGraph + FastAPI + Milvus（主选）+ 自研 OpenAI 兼容模型网关（可自托管 vLLM/SGLang）
 - 产品形态：本地 Web 优先（预留 CLI/API）
 - 沙箱：微虚拟化强隔离（Kata/Firecracker），本地开发 Docker 降级
@@ -45,7 +46,9 @@
 - **M6 生产运营**：metrics.py（纯 Python Prometheus 文本格式，/metrics + HTTP 中间件 + 任务埋点，零依赖）+ slo.py（SLO/错误预算/燃烧速率/多窗口告警 14.4x/36x）+ /v1/ops/slo + error-budget；infra/k8s 08-rules + 09-alertmanager + 10-service-monitor；scripts/loadtest.py（进程内 mock 或 --url，p50/p95/p99 vs SLO，报告+门禁退出码）、release_gate.py（健康+版本+预算）、alert_check.py（在线+离线演练）；learning/12。121 测试全绿。坑：dev SQLite checkpointer 长连接锁文件→本地脚本注入 MemorySaver 别抢锁。
 - **文档沉淀**：learning/01–12 齐（12=生产运营 SRE）；docs/README 索引已登记；CHANGELOG 全量 M1–M6+Web+UX；CLAUDE 里程碑现状已同步。
 - 代码审查：R1=engineering/03；R2=engineering/04（F1-F4）；R3=engineering/05（Web 前端 L1-L4+问题2/3）
-- 下一步：服务器到位后的云部署（learning/05 §4.1 + 12 §7 回滚演练）+ 生产实测容量/压测数据沉淀
+- **功能盘点与竞品对比（2026-08-28）**：docs/product/analysis/01-competitive-comparison.md（已登记 docs/README）——8 功能域盘点 + Grok/Codex/DSH 对比；运维治理/三层记忆/RAG评测/多租户领先；三大差距=MCP+Skills、多 Agent 并行、CLI/REST 接入。
+- **MCP 客户端 + Skills（已交付，FR-2/FR-3）**：services/mcp（protocol JSON-RPC 零依赖 + client 双传输 Streamable HTTP/SSE + adapter 工具适配命名空间 mcp__<server>__<tool> + gateway 白名单/认证/审计/幂等注册 + mcp_connect/mcp_list 工具 + testing Fake/真实HTTP）+ services/skills（SKILL.md 技能包 frontmatter 解析 + SkillRegistry 安装/卸载/列表/上下文注入 + skill_list/skill_load）；示例技能 examples/skills/code-review；demo 脚本 scripts/demo_mcp.py/demo_skills.py；learning/13；142 测试全绿。坑：长 heredoc 写代码 \n 会被 JS 转义成真换行（用 chr(10)/拼接）；pyproject packages.find 补 mcp*/skills*；SSE endpoint 相对路径用 urljoin。
+- 下一步：多 Agent/Subagent 并行（F1.4）→ CLI 与 OpenAI 兼容 REST API（F9.2/9.3）→ 服务器到位后的云部署 + 压测实测容量
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）

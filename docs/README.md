@@ -31,6 +31,7 @@
 | [architecture/02-module-design.md](./product/architecture/02-module-design.md) | draft | 模块级技术设计（目录/服务/API/数据模型/LangGraph 图/本地环境） |
 | [architecture/03-design-review-m1.md](./product/architecture/03-design-review-m1.md) | review | M1 设计评审记录（结论/决策/风险/M2 范围） |
 | [features/01-web-console-features.md](./product/features/01-web-console-features.md) | draft | Web Console 用户功能清单（面向最终用户，随功能迭代） |
+| [analysis/01-competitive-comparison.md](./product/analysis/01-competitive-comparison.md) | approved | 功能盘点与竞品对比（Grok/Codex/DSH，差距分析与下一步优先级） |
 
 ### engineering/ 开发与工程规范（开发文档）
 | 文档 | 状态 | 说明 |
@@ -56,6 +57,7 @@
 | [10-model-gateway-and-sandbox.md](./learning/10-model-gateway-and-sandbox.md) | draft | 模型网关与沙箱（OpenAI 兼容供应商/function-calling 映射/重试/沙箱执行），M4 配套 |
 | [11-web-console-and-product-ux.md](./learning/11-web-console-and-product-ux.md) | draft | Web 控制台与产品化 UX（管理页/会话切换语义/工程参数不外露/构建部署），M3a/b+Web 配套 |
 | [12-production-operations-sre.md](./learning/12-production-operations-sre.md) | draft | 生产运营 SRE（SLO/错误预算/告警分级/压测/扩缩容/回滚演练），M6 配套 |
+| [13-mcp-and-skills.md](./learning/13-mcp-and-skills.md) | draft | MCP 客户端与 Skills 机制（JSON-RPC/传输/工具适配/网关/技能包），FR-2/FR-3 配套 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |

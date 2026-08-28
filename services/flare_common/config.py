@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     slo_p95_latency_seconds: float = 5.0
     slo_period_days: int = 30
 
+    # FR-2/FR-3：MCP 服务器列表（JSON）+ 技能库目录
+    # FLARE_MCP_SERVERS='[{"name":"echo","url":"http://localhost:9001/mcp","transport":"streamable_http","headers":{},"enabled":true}]'
+    mcp_servers: list[dict] = []
+    skills_dir: str = "data/skills"
+
 
 @lru_cache
 def get_settings() -> Settings:

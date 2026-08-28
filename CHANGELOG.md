@@ -30,6 +30,18 @@
 - 侧栏工作区导航：对话 / 知识库 / 记忆 / 运维，视图切换；api.ts 统一后端 REST/SSE 客户端
 - 运维中心页（OpsView，M6 配套）：SLO 三卡片（可用性/任务成功率/延迟 p95，目标+错误预算进度条+告警分级徽章）、整体状态横幅、Prometheus /metrics 原始指标折叠查看、15s 自动刷新
 
+### Added（MCP 客户端 + Skills，FR-2/FR-3，2026-08-28）
+- MCP 客户端（services/mcp）：JSON-RPC 2.0 协议层（零依赖）+ McpClient（initialize 握手 / tools/list / tools/call）+ 双传输（Streamable HTTP / HTTP+SSE，httpx）；协议层与传输层分离，传输可插拔
+- MCP 工具适配：外部工具 → ToolRegistry.Tool（命名空间 mcp__<server>__<tool>，inputSchema 复用统一校验层），Agent 原生 function-calling 直接调用
+- MCP 网关（McpGateway，FR-2.3）：多服务器统一管理、服务器级/工具级白名单、认证头注入、审计钩子、幂等注册；配置 FLARE_MCP_SERVERS（JSON）
+- MCP 内置工具：mcp_connect（按需连接+注册）/ mcp_list（连接状态与已注册工具）
+- 测试基建（mcp/testing.py）：FakeTransport（进程内）+ MemoryMcpServer（stdlib 真实 HTTP，支持 Streamable 与 SSE 双形态，零依赖）
+- Skills 机制（services/skills）：SKILL.md 声明式技能包（frontmatter 零依赖 YAML 子集解析 + 指令 + resources/ + required_tools）、SkillRegistry（安装/卸载/列表/build_context 上下文注入）、skill_list / skill_load 工具
+- 示例技能 examples/skills/code-review；演示脚本 scripts/demo_mcp.py + scripts/demo_skills.py
+- 测试：新增 22 个（test_mcp 13 + test_skills 9），全量 142 全绿，ruff/black 干净
+- 文档：learning/13-mcp-and-skills.md；功能盘点与竞品对比 docs/product/analysis/01-competitive-comparison.md（登记 docs/README）
+- 修复部署阻断：pyproject packages.find 补 mcp*/skills*（否则生产的 wheel 缺这两个包，同 memory* 坑）
+
 ### Changed
 - Composer 移除对用户暴露的工程参数（max_steps / thread_id）：内部常量 MAX_STEPS=8，线程由系统全自动管理
 

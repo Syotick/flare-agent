@@ -31,11 +31,15 @@ from flare_common.errors import FlareError
 from flare_common.logging import setup_logging
 from flare_common.otel import init_tracing
 from flare_common.tenant import TenantMiddleware
+from mcp.gateway import McpGateway, McpServerConfig
+from mcp.mcp_tools import build_mcp_connect_tool, build_mcp_list_tool
 from memory.mem_tools import build_memory_tools
 from memory.memory import MemoryManager
 from rag.kb_tools import build_kb_search_tool
 from rag.pipeline import KnowledgeBase
 from sandbox import build_sandbox
+from skills.registry import SkillRegistry
+from skills.skill_tools import build_skill_tools
 from tools_gateway.builtin import create_default_registry
 
 logger = logging.getLogger(__name__)
@@ -75,6 +79,27 @@ def _build_task_store(settings: Settings) -> TaskStore:
     raise FlareError(f"未知 task_store: {settings.task_store!r}（应为 memory|sqlite|redis）")
 
 
+def _build_mcp_gateway(settings: Settings) -> McpGateway:
+    """按 FLARE_MCP_SERVERS 配置装配 MCP 网关（FR-2.3）。
+
+    默认空列表 -> 网关无服务器（mcp_connect/mcp_list 工具返回"未配置"），无行为变化；
+    配置了服务器 -> 工具按需连接（connect 非严格：连不上的服务器跳过并告警，
+    connect_strict 严格模式供生产 fail-fast）。认证头由 McpServerConfig.headers 注入。
+    """
+    configs = [
+        McpServerConfig(
+            name=str(item["name"]),
+            url=str(item["url"]),
+            transport=str(item.get("transport", "streamable_http")),
+            headers=dict(item.get("headers") or {}),
+            tools=item.get("tools"),  # None=全部；[]=不注册
+            enabled=bool(item.get("enabled", True)),
+        )
+        for item in settings.mcp_servers
+    ]
+    return McpGateway(configs)
+
+
 def create_app(
     settings: Settings | None = None,
     task_manager: TaskManager | None = None,
@@ -93,6 +118,7 @@ def create_app(
 
     kb = knowledge_base
     mem = memory
+    mcp_gateway: McpGateway | None = None
     if task_manager is None:
         if kb is None:
             kb = KnowledgeBase()  # 开发默认：内存 SQLite + HashEmbedder
@@ -103,6 +129,13 @@ def create_app(
         registry.register(build_kb_search_tool(kb))
         for tool in build_memory_tools(mem):
             registry.register(tool)
+        # FR-2/FR-3：MCP 网关 + 技能库（工具按需连接/加载；不阻塞启动）
+        mcp_gateway = _build_mcp_gateway(settings)
+        registry.register(build_mcp_connect_tool(mcp_gateway, registry))
+        registry.register(build_mcp_list_tool(mcp_gateway))
+        skill_registry = SkillRegistry(settings.skills_dir)
+        for tool in build_skill_tools(skill_registry):
+            registry.register(tool)
         task_manager = TaskManager(
             registry=registry,
             memory=mem,
@@ -112,6 +145,8 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         yield
+        if mcp_gateway is not None:
+            await mcp_gateway.close()  # FR-2.3：关闭 MCP 连接池
         if task_manager is not None:
             await task_manager.close()  # M4：关闭模型 HTTP 客户端等资源
         if kb is not None:
