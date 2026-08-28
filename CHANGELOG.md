@@ -27,7 +27,8 @@
 - 对话工作区：SSE 实时流式对话 + 工具调用轨迹卡片（ThinkingOrb / ToolCallCard / WelcomePanel）
 - 知识库管理页（KnowledgeBaseView）：入库、文档列表/删除、hybrid 检索、RAG 评测可视化
 - 记忆管理页（MemoryView）：事实 CRUD、向量记忆检索、上下文块预览
-- 侧栏工作区导航：对话 / 知识库 / 记忆，视图切换；api.ts 统一后端 REST/SSE 客户端
+- 侧栏工作区导航：对话 / 知识库 / 记忆 / 运维，视图切换；api.ts 统一后端 REST/SSE 客户端
+- 运维中心页（OpsView，M6 配套）：SLO 三卡片（可用性/任务成功率/延迟 p95，目标+错误预算进度条+告警分级徽章）、整体状态横幅、Prometheus /metrics 原始指标折叠查看、15s 自动刷新
 
 ### Changed
 - Composer 移除对用户暴露的工程参数（max_steps / thread_id）：内部常量 MAX_STEPS=8，线程由系统全自动管理

@@ -4,10 +4,11 @@ import ChatView from "./components/ChatView";
 import Composer from "./components/Composer";
 import KnowledgeBaseView from "./components/KnowledgeBaseView";
 import MemoryView from "./components/MemoryView";
+import OpsView from "./components/OpsView";
 import Sidebar from "./components/Sidebar";
 import type { Item } from "./types";
 
-export type ViewId = "chat" | "kb" | "memory";
+export type ViewId = "chat" | "kb" | "memory" | "ops";
 
 let nextId = 1;
 
@@ -282,8 +283,10 @@ export default function App() {
           </>
         ) : view === "kb" ? (
           <KnowledgeBaseView />
-        ) : (
+        ) : view === "memory" ? (
           <MemoryView />
+        ) : (
+          <OpsView />
         )}
       </main>
     </div>

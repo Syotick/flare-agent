@@ -209,3 +209,48 @@ export async function getMemoryContext(q = "", budget = 1200): Promise<string> {
   return resp.block;
 }
 
+
+// ---------- M6 运维 ----------
+
+export type AlertSeverity = "none" | "warning" | "critical";
+
+export interface SloBudget {
+  slo: string;
+  target: number;
+  total: number;
+  bad: number;
+  budget: number;
+  consumed_ratio: number;
+  remaining_ratio: number;
+}
+
+export interface SloAlert {
+  severity: AlertSeverity;
+  name: string;
+  message: string;
+}
+
+export interface SloEntry {
+  name: string;
+  target: number;
+  budget?: SloBudget;
+  p95?: number | null;
+  alert: SloAlert;
+}
+
+export interface SloStatus {
+  overall: AlertSeverity;
+  generated_at: number;
+  period_days: number;
+  slos: SloEntry[];
+}
+
+export async function getSloStatus(): Promise<SloStatus> {
+  return json<SloStatus>(await fetch("/v1/ops/slo"));
+}
+
+export async function getMetricsText(): Promise<string> {
+  const resp = await fetch("/metrics");
+  return resp.text();
+}
+

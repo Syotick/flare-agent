@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Brain, Database, MessageSquare, Plus, Search, Sparkles, Trash2, X,
+  Activity, Brain, Database, MessageSquare, Plus, Search, Sparkles, Trash2, X,
 } from "lucide-react";
 import { cn, groupByDate, autoTitle } from "../lib/utils";
 import type { TaskDetail } from "../api";
@@ -156,6 +156,19 @@ export default function Sidebar(props: {
             <Brain className={"h-3.5 w-3.5 " + (view === "memory" ? "text-primary" : "")} />
             <span className={view === "memory" ? "font-medium" : ""}>记忆</span>
             <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M3b</span>
+          </div>
+          <div
+            className={
+              "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors " +
+              (view === "ops"
+                ? "bg-gradient-flare-soft text-foreground"
+                : "text-muted-foreground/60 hover:bg-muted hover:text-foreground")
+            }
+            onClick={() => onNavigate("ops")}
+          >
+            <Activity className={"h-3.5 w-3.5 " + (view === "ops" ? "text-primary" : "")} />
+            <span className={view === "ops" ? "font-medium" : ""}>运维</span>
+            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M6</span>
           </div>
           <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground/60">
             <Sparkles className="h-3.5 w-3.5" />
