@@ -40,8 +40,11 @@
 - **M3b Round5 审查修复**：M1 短期对话层真接线——tasks.py _recent_messages 从 checkpointer 取该线程近期 user/assistant 消息传入 build_context(recent=)（注意 checkpoint 是 dict，状态在 channel_values）；graph.actor 同 thread 续聊时把新任务输入追加为 user 消息（判定=已有以该输入结尾的 user 消息）；验证用 checkpoint 最后一条 user 消息而非 echo。M2 mem_recall 相关度排序(_fact_relevance: 整句>分词>2-gram)+封顶 k+2。M3 向量记忆 title=文本前24字符+短id。M4 build_context 事实封顶15。M5 pgvector 同库分表决策。M6 Web 续聊须回传 thread_id。
 - **M3a Round4 审查修复**：R1 工具 schema 注入 system 消息（graph._build_tool_schema）——只注册进 registry 不够，真实模型看不到就不会自主调 kb_search；R2 store.add 先 DELETE 旧 chunk 再插（防残留）；R3 DocumentCreate.content max_length=100_000；R4 k=Query(ge=1,le=20) + search 维度校验抛 VECTOR_DIM_MISMATCH(422)；R6 测试暴露 HashEmbedder 字面 n-gram 非语义边界（0.9 vs <0.5）；R7 观察截断 300。
 - **M3b 分层记忆完成**：services/memory（短期=LangGraph checkpoint 会话；长期=事实库 facts key->value 按 project_id 隔离，开发 SQLite/生产 PG；向量=复用 rag 协议）；F4.3 上下文工程 context.py（截断/摘要/预算优先级）；mem_set/mem_recall 工具；/v1/memory(facts CRUD/notes/search/context)；TaskManager 任务开始按 task_input 自动注入记忆上下文（graph memory_context）；pytest 52 全绿，ruff/black 干净
+- **Web 控制台（M3a/M3b 配套）**：三个工作区（对话 SSE 流式 / 知识库 KnowledgeBaseView / 记忆 MemoryView）；App view 切换；Sidebar 导航可点；api.ts 统一客户端。构建 npm run build→dist(gitignore)，后端 8000 静态托管（非 3080）；dev 用 5173。坑：长 heredoc 写 TSX 截断污染→分段<100行；noUnusedLocals 删未用导入。
+- **Web UX 修复**：用户不暴露 max_steps/thread_id（内部 MAX_STEPS=8；thread_id 自动：send 同步 created.thread_id、pickTask 沿用会话线程、newChat 清空）；切换会话先清 items 再 SSE 回放防残留；hash 恢复续线程。
+- **文档沉淀**：learning/01–11 齐（11=Web 控制台与产品化 UX）；docs/README 索引已登记；CHANGELOG 全量 M1–M5+Web+UX；CLAUDE 里程碑现状已同步。
 - 代码审查：R1=engineering/03；R2=engineering/04（F1-F4）；R3=engineering/05（Web 前端 L1-L4+问题2/3）
-- 下一步：M3 RAG 知识库 + 记忆体系（或先做单用户 E2E 验收）
+- 下一步：M6 生产运营（SLO/告警/压测/扩缩容/回滚演练）+ 服务器到位后的云部署（learning/05 §4.1）
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）

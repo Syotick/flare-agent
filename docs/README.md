@@ -54,6 +54,7 @@
 | [08-technical-architecture.md](./learning/08-technical-architecture.md) | draft | 技术架构（选型/分层/运行机制/数据/集成/部署/安全/权衡），实践+真理 |
 | [09-rag-evaluation-and-hybrid-retrieval.md](./learning/09-rag-evaluation-and-hybrid-retrieval.md) | draft | RAG 评测与混合检索（确定性指标/数据集/RAGAS 式判定/BM25+向量 RRF/重排），M3c 配套 |
 | [10-model-gateway-and-sandbox.md](./learning/10-model-gateway-and-sandbox.md) | draft | 模型网关与沙箱（OpenAI 兼容供应商/function-calling 映射/重试/沙箱执行），M4 配套 |
+| [11-web-console-and-product-ux.md](./learning/11-web-console-and-product-ux.md) | draft | Web 控制台与产品化 UX（管理页/会话切换语义/工程参数不外露/构建部署），M3a/b+Web 配套 |
 
 ### adr/ 架构决策记录（14 项已记录，完整见 [adr/README.md](./adr/README.md)）
 | 编号 | 标题 | 状态 |
