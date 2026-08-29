@@ -110,7 +110,41 @@ while True:
 - 决策接口 POST /v1/approvals/{id}/decide：已处理请求重复决策返回 409（防重放）。
 - 任务终态后 GET /v1/tasks/{id}/stream 完整重放，审批卡片随之恢复——SSE 回放是唯一数据源。
 
-## 七、验收清单（FR-1.3 / FR-2.4）
+## 七、TOFU（Trust On First Use）——防审批疲劳
+
+审批疲劳是 human-in-the-loop 的头号杀手：每一步都弹确认，人就会肌肉点批准，审批形同虚设。
+TOFU 思路：**同一信任作用域内，某工具获批一次后，后续调用自动放行**。
+
+- 作用域可配（FLARE_APPROVAL_TOFU_SCOPE）：thread（会话线程，默认，对标 Codex/Claude Code 的
+  per-session 信任）| tenant（租户级）| off（关闭，每次都要审）。
+- 实现：ApprovalManager 维护信任集 {scope -> {tool_name}}；图内 requires_approval 先查策略、
+  再查信任集——已信任的工具**连 interrupt 都不发**，直接执行（真正的免打断，不只是免等待）。
+- 信任记录由 ApprovalManager 统一门控（决策获批后经 backend.record_trust；拒绝/超时绝不记录），
+  且受 FLARE_APPROVAL_TOFU 开关约束——关闭时无论后端如何都不记信任。
+- 冒烟实证：同线程任务1 审批→批准→任务2 同线程再触发沙箱，saw_awaiting=False 直接跑完。
+
+## 八、多实例审批后端（跨节点决策）
+
+单进程的 asyncio.Event 唤醒只在本实例有效。多实例（K8s 多副本）下，决策可能发生在**另一实例**。
+ApprovalBackend 抽象解决：
+
+- LocalApprovalBackend：进程内 dict + asyncio.Event（默认/单实例，行为与之前一致）。
+- RedisApprovalBackend：请求存 hash + 待审批 set + 有序索引（zset，审批中心按时间排序）+
+  TOFU 信任 set；**跨节点唤醒用轮询**（wait 每 poll_interval 读一次状态，人类审批 200ms
+  感知延迟可忽略，免 pub/sub 生命周期管理）；decide 在任意实例写 Redis，等待方轮询到即醒。
+- 选型：FLARE_APPROVAL_BACKEND=redis（默认 local）；连不上 Redis fail-fast
+  （ApprovalBackendUnavailableError → 任务优雅 failed 入 error 字段，不静默降级）。
+- 信任集也存 Redis：实例 A 记录 TOFU 信任，实例 B 的 requires_approval 立刻可见（跨节点生效）。
+
+## 九、审批中心（独立工作区视图）
+
+- 对话流内的审批卡片是"当次决策"，审批中心是"审计台账 + 集中决策台"：
+  GET /v1/approvals（含历史，按请求时间排序）、GET {id}、POST {id}/decide。
+- Web ApprovalsView：审批历史列表（工具/权限/参数/状态/请求时间/决策人/原因）+ 待审批
+  5s 自动刷新 + 批准/拒绝按钮；Sidebar「审批」导航带待审批徽标（脉冲，App 每 8s 轮询）。
+- 治理原则延续：一个能力 = 一个 REST 端点 + 一个前端视图（审批中心 = /v1/approvals + ApprovalsView）。
+
+## 十、验收清单（FR-1.3 / FR-2.4 / 进阶）
 
 - [x] Tool 权限分级（read/write/destructive），sandbox_run=destructive
 - [x] 审批策略可配（级别 + 工具白名单 + 超时，环境变量 FLARE_APPROVAL_*）
@@ -118,4 +152,7 @@ while True:
 - [x] 批准放行 / 拒绝回灌观察（agent 换路）/ 超时自动拒绝
 - [x] REST：列出待审批 / 详情 / 决策（重复决策 409 / 未知 404）
 - [x] Web：对话流内审批卡片（批准/拒绝）+ 状态回灌 + SSE 重放恢复
-- [x] 全量 190 测试全绿 + ruff/black 干净 + tsc/vite build + 真实服务器冒烟
+- [x] TOFU：同作用域首次获批后后续免 interrupt 直行（thread/tenant/off 可配，拒绝不记信任）
+- [x] 多实例：Redis 后端（跨节点轮询唤醒/信任集共享/超时/索引），fail-fast 优雅降级
+- [x] 审批中心：独立视图（历史台账 + 集中决策 + 待审批徽标 + 自动刷新）
+- [x] 全量 200 测试全绿 + ruff/black 干净 + tsc/vite build + 真实服务器冒烟（TOFU 免审 + Redis fail-fast）

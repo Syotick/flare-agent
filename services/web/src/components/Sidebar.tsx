@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Activity, Brain, Database, MessageSquare, Plus, Puzzle, Search, Terminal, Trash2, X,
+  Activity, Brain, Database, MessageSquare, Plus, Puzzle, Search, ShieldCheck, Terminal, Trash2, X,
 } from "lucide-react";
 import { cn, groupByDate, autoTitle } from "../lib/utils";
 import type { TaskDetail } from "../api";
@@ -20,8 +20,9 @@ export default function Sidebar(props: {
   running: boolean;
   view: ViewId;
   onNavigate: (view: ViewId) => void;
+  pendingApprovals: number;
 }) {
-  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate } = props;
+  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate, pendingApprovals } = props;
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
 
@@ -169,6 +170,25 @@ export default function Sidebar(props: {
             <Activity className={"h-3.5 w-3.5 " + (view === "ops" ? "text-primary" : "")} />
             <span className={view === "ops" ? "font-medium" : ""}>运维</span>
             <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M6</span>
+          </div>
+          <div
+            className={
+              "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors " +
+              (view === "approvals"
+                ? "bg-gradient-flare-soft text-foreground"
+                : "text-muted-foreground/60 hover:bg-muted hover:text-foreground")
+            }
+            onClick={() => onNavigate("approvals")}
+          >
+            <ShieldCheck className={"h-3.5 w-3.5 " + (view === "approvals" ? "text-primary" : "")} />
+            <span className={view === "approvals" ? "font-medium" : ""}>审批</span>
+            {pendingApprovals > 0 ? (
+              <span className="ml-auto animate-pulse rounded-full bg-warning/20 px-1.5 py-0.5 text-[9px] text-warning">
+                {pendingApprovals} 待批
+              </span>
+            ) : (
+              <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">F1.3</span>
+            )}
           </div>
           <div
             className={

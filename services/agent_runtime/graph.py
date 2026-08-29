@@ -98,6 +98,7 @@ def build_react_agent(
     checkpointer: Any = None,
     memory_context: str | None = None,
     approval: ApprovalManager | None = None,
+    approval_scope: str | None = None,
 ):
     """构建 ReAct 核心图：actor ↔ tool_executor（带预算熔断 + 审批门）。
 
@@ -108,6 +109,7 @@ def build_react_agent(
     - approval: F1.3 审批管理器（None=不启用审批门）。启用后，工具执行前若需审批
       （F2.4 权限分级），tool_executor 发 LangGraph interrupt 挂起任务，等人工决策：
       resume={"approved": True} 放行执行；False 拒绝并把拒绝观察回灌给模型。
+    - approval_scope: TOFU 信任作用域键（会话线程/租户），已信任的工具免 interrupt 直行。
     """
 
     async def actor(state: AgentState) -> dict[str, Any]:
@@ -189,10 +191,11 @@ def build_react_agent(
         args = tool.get("args") or {}
         # F1.3/F2.4 审批门：破坏性/策略要求的工具执行前 interrupt 挂起，等人工决策。
         # resume={"approved": True} 放行执行；False 拒绝，拒绝观察回灌给模型（agent 换路/收尾）。
+        # TOFU：同作用域已获批的工具 -> 免 interrupt 直行。
         if approval is not None:
             try:
                 tool_obj = registry.get(name)
-                needs_approval = approval.requires_approval(tool_obj)
+                needs_approval = await approval.requires_approval(tool_obj, scope=approval_scope)
             except NotFoundError:
                 needs_approval = False
             if needs_approval:

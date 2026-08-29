@@ -34,22 +34,22 @@ def build_approval_router(manager: ApprovalManager) -> APIRouter:
 
     @router.get("")
     async def list_approvals(pending_only: bool = False) -> list[dict[str, Any]]:
-        requests = manager.pending() if pending_only else manager.list()
+        requests = await manager.pending() if pending_only else await manager.list()
         return [r.to_dict() for r in requests]
 
     @router.get("/{approval_id}")
     async def get_approval(approval_id: str) -> dict[str, Any]:
-        req = manager.get(approval_id)
+        req = await manager.get(approval_id)
         if req is None:
             raise _missing()
         return req.to_dict()
 
     @router.post("/{approval_id}/decide")
     async def decide_approval(approval_id: str, body: ApprovalDecision) -> dict[str, Any]:
-        if manager.get(approval_id) is None:
+        if await manager.get(approval_id) is None:
             raise _missing()
         try:
-            req = manager.decide(
+            req = await manager.decide(
                 approval_id,
                 approved=body.approved,
                 decided_by=body.decided_by,

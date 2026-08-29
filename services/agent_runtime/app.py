@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from agent_runtime.approval import ApprovalManager, ApprovalPolicy
+from agent_runtime.approval import ApprovalManager, ApprovalPolicy, RedisApprovalBackend
 from agent_runtime.routes.approval import build_approval_router
 from agent_runtime.routes.capabilities import build_capabilities_router
 from agent_runtime.routes.kb import build_kb_router
@@ -128,9 +128,18 @@ def create_app(
     mcp_gateway: McpGateway | None = None
     skill_registry: SkillRegistry | None = None
     # F1.3/F2.4：审批管理器（破坏性工具默认需人工审批；FLARE_APPROVAL_* 可调）
+    # 后端：local（单实例）| redis（多实例共享，跨节点决策轮询唤醒）
+    approval_backend = (
+        RedisApprovalBackend(url=settings.redis_url)
+        if settings.approval_backend == "redis"
+        else None
+    )
     approval_manager = ApprovalManager(
         ApprovalPolicy(require_level=settings.approval_require_level),
         timeout=settings.approval_timeout,
+        backend=approval_backend,
+        tofu_enabled=settings.approval_tofu,
+        tofu_scope=settings.approval_tofu_scope,
     )
     if task_manager is None:
         if kb is None:

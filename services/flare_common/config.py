@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # 例如 FLARE_APPROVAL_REQUIRE_LEVEL=write 则所有写/破坏性工具都要审批
     approval_require_level: str = "destructive"
     approval_timeout: float = 300.0  # 审批等待超时（秒），超时自动按拒绝处理
+    # 审批后端：local（进程内，默认/单实例）| redis（多实例共享，跨节点决策轮询唤醒）
+    approval_backend: str = "local"
+    # TOFU（首用信任）：同作用域某工具获批一次后后续自动放行，防审批疲劳
+    approval_tofu: bool = True
+    approval_tofu_scope: str = "thread"  # thread（会话线程，默认）| tenant | off
 
 
 @lru_cache

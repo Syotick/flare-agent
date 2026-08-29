@@ -171,6 +171,10 @@ class TaskManager:
                 memory_context = await self._memory.build_context(
                     query=task.task_input, recent=recent
                 )
+            # F1.3/F2.4：审批门 + TOFU 作用域（thread=会话线程 / tenant=租户 / off=关闭）
+            approval_scope = None
+            if self._approval is not None:
+                approval_scope = self._approval.scope_for(task.thread_id, task.tenant_id)
             agent = build_react_agent(
                 self._llm,
                 self._registry,
@@ -178,6 +182,7 @@ class TaskManager:
                 checkpointer=checkpointer,
                 memory_context=memory_context,
                 approval=self._approval,  # F1.3：None=不启用审批门
+                approval_scope=approval_scope,  # TOFU：已信任的工具免 interrupt 直行
             )
             # F1.3 中断恢复循环：工具需审批时图发 interrupt 挂起 → 登记审批请求 +
             # 状态转 awaiting_approval → 等人工决策（REST）→ Command(resume=...) 续跑。
@@ -197,12 +202,13 @@ class TaskManager:
                                 and isinstance(payload, dict)
                                 and payload.get("type") == "approval"
                             ):
-                                req = self._approval.register(
+                                req = await self._approval.register(
                                     task.task_id,
                                     payload["tool"],
                                     payload.get("args") or {},
                                     permission=payload.get("permission", "destructive"),
                                     description=payload.get("description", ""),
+                                    scope=approval_scope,
                                 )
                                 task.events.append(
                                     {

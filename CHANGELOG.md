@@ -61,6 +61,14 @@
 - 教学文档 learning/16（已登记 docs/README）；测试新增 12（test_approval：权限打标/策略/管理器/图内 interrupt 审批门/任务端到端批准+拒绝/REST 契约/create_app 挂载），全量 190 全绿，ruff/black 干净，tsc(strict)+vite build 通过
 - 冒烟验证：真实 uvicorn 端到端——「沙箱执行」任务触发审批（awaiting_approval → 待审批列表 → 批准后真沙箱执行输出 / 拒绝后 APPROVAL_REJECTED 收尾）、SSE 重放含 approval 事件、重复决策 409 全部打通
 
+### Added（TOFU 首用信任 + 多实例审批后端 + 审批中心视图，F1.3/F2.4 进阶，2026-08-29）
+- TOFU（Trust On First Use）：同作用域（默认=会话线程，可 tenant/off）某工具获批一次后，后续调用自动放行（免 interrupt 直行），防审批疲劳；信任记录由 ApprovalManager 统一门控（决策/超时两条路径），FLARE_APPROVAL_TOFU / FLARE_APPROVAL_TOFU_SCOPE 可调
+- 多实例后端（ApprovalBackend 抽象）：Local（进程内 asyncio.Event，默认/单实例）与 Redis（多实例共享：请求存 hash + 待审批 set + 有序索引 + TOFU 信任 set，跨节点决策轮询唤醒免 pub/sub 生命周期，FLARE_APPROVAL_BACKEND=redis 启用，连不上 fail-fast 优雅降级为任务失败）
+- graph/tasks/routes 适配：requires_approval/register/decide/pending/list 全 async + approval_scope 透传（graph 传 thread/tenant，已信任工具免 interrupt）；routes/approval.py 异步化
+- 审批中心视图（ApprovalsView）：独立工作区页（审批历史列表 + 待审批 5s 自动刷新 + 批准/拒绝 + 决策人/原因/时间展示）；Sidebar 新增「审批」导航（待审批徽标脉冲 + F1.3）；App.tsx 轮询待审批数驱动徽标；api.ts 复用 listApprovals/decideApproval
+- 教学文档 learning/16 补 TOFU/Redis 后端/审批中心章节（已登记 docs/README）；测试新增 10（test_approval：TOFU 信任/关闭/拒绝不信任/作用域解析/Redis 跨实例决策+超时+索引+manager 经 Redis 端到端/图内 TOFU 免第二次 interrupt/任务同线程续聊免审批），全量 200 全绿，ruff/black 干净，tsc(strict)+vite build 通过
+- 冒烟验证：真实 uvicorn——同线程任务1 审批→批准→任务2 同线程再触发沙箱免审批直行（saw_awaiting=False）、审批历史仅 1 条已批准；FLARE_APPROVAL_BACKEND=redis 无 Redis 时任务优雅 failed（连接错误入 error 字段，不崩）
+
 ### Fixed（Round 6 审查，2026-08-28）
 - M1 图内工具 schema 冻结：graph.actor 每轮用当前 registry 重建 system 工具清单（原位替换）——mcp_connect 中途注册的新工具同任务内对模型可见可调；补 ReAct 图端到端用例
 - M2 SSE 跨 chunk 拆分：新增 _split_sse_events 增量切分（只消费空行结尾的完整事件，残余保留 buffer）；testing.py 支持 sse_chunk 分块写出 + sse_response_delay

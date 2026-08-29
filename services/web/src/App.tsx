@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { createTask, deleteTask, getTask, listTasks } from "./api";
+import { createTask, deleteTask, getTask, listApprovals, listTasks } from "./api";
 import ApiView from "./components/ApiView";
+import ApprovalsView from "./components/ApprovalsView";
 import CapabilitiesView from "./components/CapabilitiesView";
 import ChatView from "./components/ChatView";
 import Composer from "./components/Composer";
@@ -10,7 +11,7 @@ import OpsView from "./components/OpsView";
 import Sidebar from "./components/Sidebar";
 import type { Item } from "./types";
 
-export type ViewId = "chat" | "kb" | "memory" | "ops" | "capabilities" | "api";
+export type ViewId = "chat" | "kb" | "memory" | "ops" | "capabilities" | "api" | "approvals";
 
 let nextId = 1;
 
@@ -43,6 +44,7 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [tasks, setTasks] = useState<import("./api").TaskDetail[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const lastToolId = useRef<number | null>(null);
   const lastAssistantId = useRef<number | null>(null);
@@ -53,6 +55,17 @@ export default function App() {
 
   useEffect(() => {
     refreshHistory();
+  }, []);
+
+  // F1.3 审批中心：轮询待审批数，驱动侧栏徽标（有审批时审批中心也会自刷新）
+  useEffect(() => {
+    const load = () =>
+      listApprovals(true)
+        .then((l) => setPendingApprovals(l.length))
+        .catch(() => undefined);
+    load();
+    const timer = window.setInterval(load, 8000);
+    return () => window.clearInterval(timer);
   }, []);
 
   // 刷新恢复：回放该会话轨迹，并沿用其线程（续聊上下文连续）
@@ -284,6 +297,7 @@ export default function App() {
           running={running}
           view={view}
           onNavigate={setView}
+          pendingApprovals={pendingApprovals}
         />
       </div>
       <main className="flex min-w-0 flex-1 flex-col">
@@ -308,6 +322,8 @@ export default function App() {
           <CapabilitiesView />
         ) : view === "api" ? (
           <ApiView />
+        ) : view === "approvals" ? (
+          <ApprovalsView />
         ) : (
           <OpsView />
         )}
