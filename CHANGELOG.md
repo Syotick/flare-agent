@@ -37,6 +37,14 @@
 - 演示脚本 scripts/demo_subagent.py；教学文档 learning/14-multi-agent.md（已登记 docs/README）
 - 测试：新增 9 个（test_subagent，含 max_active>=2 证明真并发 + 超时护栏），全量 152 全绿，ruff/black 干净
 
+### Added（CLI + OpenAI 兼容 REST API，F9.2/F9.3，2026-08-28）
+- OpenAI 兼容端点（routes/openai_compat.py）：POST /v1/chat/completions（标准 Chat Completions 契约，含 stream=true SSE 分块 + [DONE]）+ GET /v1/models；复用 TaskManager（任务登记/可观测/可查同一套存储），非流式内部轮询等待（同步语义的异步执行）
+- OpenAI 兼容错误：扁平 {"error":{message,type,param,code}}（自定义 OpenAICompatError → JSONResponse，不经 FastAPI detail 包装）；可选认证 FLARE_API_KEY（Bearer，空=开放）
+- CLI（services/flare_cli）：flare chat（流式/--json）/ tasks / task(--stream) / models；httpx 瘦客户端 FlareClient 可注入 ASGITransport 测试；pyproject [project.scripts] flare + 包 flare_cli*
+- 接线：app.py 挂载 openai 路由（api_key=settings.api_key）；Settings 加 api_key；.env.example 补 FLARE_API_KEY/FLARE_URL
+- 教学文档 learning/15（已登记 docs/README）；测试新增 12（test_openai_compat 6 + test_flare_cli 5 + 复用），全量 172 全绿
+- 冒烟验证：真实 uvicorn + python -m flare_cli（models/chat 流式/tasks/--json）端到端打通
+
 ### Fixed（Round 6 审查，2026-08-28）
 - M1 图内工具 schema 冻结：graph.actor 每轮用当前 registry 重建 system 工具清单（原位替换）——mcp_connect 中途注册的新工具同任务内对模型可见可调；补 ReAct 图端到端用例
 - M2 SSE 跨 chunk 拆分：新增 _split_sse_events 增量切分（只消费空行结尾的完整事件，残余保留 buffer）；testing.py 支持 sse_chunk 分块写出 + sse_response_delay

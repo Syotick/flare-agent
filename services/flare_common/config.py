@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     mcp_servers: list[dict] = []
     skills_dir: str = "data/skills"
 
+    # F9.3：OpenAI 兼容 API 认证（FLARE_API_KEY；空=不校验，生产务必配置）
+    api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

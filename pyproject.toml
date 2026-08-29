@@ -11,9 +11,12 @@ authors = [{ name = "Syotick" }]
 license = { text = "MIT" }
 # 依赖统一放 requirements.txt / requirements-dev.txt（CI 安装与 pip-audit 以此为单一事实来源）
 
+[project.scripts]
+flare = "flare_cli.main:main"
+
 [tool.setuptools.packages.find]
 where = ["services"]
-include = ["flare_common*", "agent_runtime*", "model_gateway*", "memory*", "rag*", "tools_gateway*", "sandbox*", "mcp*", "skills*", "subagent*"]
+include = ["flare_common*", "agent_runtime*", "model_gateway*", "memory*", "rag*", "tools_gateway*", "sandbox*", "mcp*", "skills*", "subagent*", "flare_cli*"]
 
 [tool.black]
 line-length = 100

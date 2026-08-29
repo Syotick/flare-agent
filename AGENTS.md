@@ -20,7 +20,7 @@
 7. 强企业级技术栈，云原生
 
 ## 已确认决策（2026-08-27 / 2026-08-28）
-- 2026-08-28：下一步开发点 = MCP 客户端 + Skills（FR-2/FR-3）→ 多 Agent 并行（F1.4）→ CLI/REST 接入（F9.2/9.3）
+- 2026-08-28：开发线已走完 MCP 客户端 + Skills（FR-2/FR-3）→ 多 Agent 并行（F1.4）→ CLI/OpenAI 兼容 REST API（F9.2/9.3），下一步 = 云部署 + 压测实测容量
 - 技术栈：Python + LangGraph + FastAPI + Milvus（主选）+ 自研 OpenAI 兼容模型网关（可自托管 vLLM/SGLang）
 - 产品形态：本地 Web 优先（预留 CLI/API）
 - 沙箱：微虚拟化强隔离（Kata/Firecracker），本地开发 Docker 降级
@@ -50,8 +50,9 @@
 - **MCP 客户端 + Skills（已交付，FR-2/FR-3）**：services/mcp（protocol JSON-RPC 零依赖 + client 双传输 Streamable HTTP/SSE + adapter 工具适配命名空间 mcp__<server>__<tool> + gateway 白名单/认证/审计/幂等注册 + mcp_connect/mcp_list 工具 + testing Fake/真实HTTP）+ services/skills（SKILL.md 技能包 frontmatter 解析 + SkillRegistry 安装/卸载/列表/上下文注入 + skill_list/skill_load）；示例技能 examples/skills/code-review；demo 脚本 scripts/demo_mcp.py/demo_skills.py；learning/13；142 测试全绿。坑：长 heredoc 写代码 \n 会被 JS 转义成真换行（用 chr(10)/拼接）；pyproject packages.find 补 mcp*/skills*；SSE endpoint 相对路径用 urljoin。
 - **多 Agent/Subagent 并行（已交付，F1.4）**：services/subagent（SubagentRuntime 子任务=独立 ReAct Agent 实例 + MemorySaver 临时 checkpointer + asyncio.gather 并行 + 独立预算/超时/MAX_ACTIVE=64 护栏 + spawn/await(list shield 超时不打断)/run_subagents/list/close）+ 编排工具 spawn_subagent/await_subagent/list_subagents/run_subagents（并行核心原语，单次上限16 prompt）+ create_app 接线（TaskManager 加 llm/registry 属性）；demo 脚本 scripts/demo_subagent.py；learning/14；152 测试全绿。坑：async def 不能内联表达式。
 - **Round 6 审查闭环（MCP 客户端）**：归档 docs/engineering/07-code-review-r6.md。M1 图内 schema 冻结→graph.actor 每轮重建 system 工具清单（mcp_connect 中途注册的新工具同任务可见）+ReAct 图端到端用例；M2 SSE 跨 chunk→_split_sse_events 增量切分（残余保留 buffer）+sse_chunk 分块测试；M3 超时可配→McpServerConfig.timeout→build_transport 透传；M4 register_all(server_name=...)过滤；M5 McpGateway.status() 只读；M6 connect/register 审计；M7 观察限长2000+artifacts；M8 白名单默认关明示。坑：202 要显式 Content-Length:0（否则 httpx 等连接关闭）；SSE 分块写用 handler 的 wfile；flaky 根因=time.time()碰撞→list_facts 加 rowid DESC tie-breaker。竞品文档 v1.1（决策时点快照+已落地+DSH star 改定性）。160 测试全绿，ruff/black 干净。
-- 下一步：CLI 与 OpenAI 兼容 REST API（F9.2/9.3）→ 服务器到位后的云部署 + 压测实测容量
-- 回归基线：全量 160 测试全绿（test_mcp 21 例：原13+Round6 回归8）
+- **CLI + OpenAI 兼容 REST API（已交付，F9.2/F9.3）**：routes/openai_compat.py（POST /v1/chat/completions 标准 Chat Completions 契约 + stream SSE + /v1/models + OpenAI 风格扁平错误 + FLARE_API_KEY 可选认证，复用 TaskManager）；services/flare_cli（FlareClient httpx 瘦客户端可注入 ASGITransport 测试 + chat/tasks/task/models + console script flare）；Settings 加 api_key；.env.example 补 FLARE_API_KEY/FLARE_URL；pyproject include 加 flare_cli*；learning/15；冒烟端到端打通。坑：HTTPException 会被 FastAPI 包成 {"detail":...}，OpenAI 兼容错误要用自定义异常直接返回 JSONResponse。172 测试全绿，ruff/black 干净。
+- 下一步：服务器到位后的云部署 + 压测实测容量
+- 回归基线：全量 172 测试全绿（test_mcp 21 + test_openai_compat 6 + test_flare_cli 5）
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）

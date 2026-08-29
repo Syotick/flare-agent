@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from agent_runtime.routes.kb import build_kb_router
 from agent_runtime.routes.memory import build_memory_router
+from agent_runtime.routes.openai_compat import build_openai_router
 from agent_runtime.routes.ops import build_ops_router
 from agent_runtime.routes.tasks import build_tasks_router
 from agent_runtime.task_store import (
@@ -199,6 +200,9 @@ def create_app(
 
     # M2-4c: 任务 API（graph + checkpointer 接入 HTTP，端到端回路）
     app.include_router(build_tasks_router(task_manager))
+
+    # F9.3: OpenAI 兼容 API（任何 OpenAI SDK/LiteLLM/curl 直接调用；FLARE_API_KEY 可选认证）
+    app.include_router(build_openai_router(task_manager, api_key=settings.api_key))
 
     # M6: 运维 API（SLO 状态 / 错误预算）
     app.include_router(build_ops_router(settings))
