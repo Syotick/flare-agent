@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -14,6 +15,8 @@ from pydantic import BaseModel, Field
 
 from agent_runtime.tasks import TaskManager
 from flare_common import metrics
+
+logger = logging.getLogger("agent_runtime.tasks")
 
 
 class TaskCreate(BaseModel):
@@ -57,6 +60,7 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
     @router.get("/tasks/{task_id}/stream")
     async def stream_task(task_id: str) -> StreamingResponse:
         task = manager.get(task_id)
+        logger.info("SSE stream connect: task=%s exists=%s", task_id, task is not None)
         if task is None:
             raise HTTPException(
                 status_code=404,

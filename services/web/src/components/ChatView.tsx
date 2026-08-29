@@ -8,14 +8,19 @@ import ThinkingOrb from "./ThinkingOrb";
 import ToolCallCard from "./ToolCallCard";
 import WelcomePanel from "./WelcomePanel";
 
-// 打字机流式文本
+// 打字机流式文本（修复：done 时立即全量显示——任务快时 step/result 几乎同时到达，
+// 若 done=true 还停在 shown=0 会渲染出空白气泡，回复永远不显示）
 function StreamText({ text, done }: { text: string; done: boolean }) {
   const [shown, setShown] = useState(0);
   useEffect(() => {
     setShown(0);
   }, [text]);
   useEffect(() => {
-    if (done || shown >= text.length) return;
+    if (done) {
+      setShown(text.length); // 完成时直接补全，避免停在空白
+      return;
+    }
+    if (shown >= text.length) return;
     const t = window.setTimeout(() => setShown((s) => Math.min(s + 2, text.length)), 12);
     return () => window.clearTimeout(t);
   }, [shown, done, text]);
