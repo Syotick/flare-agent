@@ -20,7 +20,7 @@
 7. 强企业级技术栈，云原生
 
 ## 已确认决策（2026-08-27 / 2026-08-28 / 2026-08-29）
-- 2026-08-29：模型配置与供应商接入已交付——M4 wiring 修复（create_app 真正传 llm 给 TaskManager，配了 key 才生效，之前永远 mock）+ ModelConfigStore（env>JSON>settings 优先级、脱敏、key 只在服务端 0600）+ /v1/settings/model GET/PUT/presets/test + 控制台「模型」页（预设下拉/保存并生效/测试连接/清除 key）+ 保存热生效（set_llm，新建任务生效）；Anthropic 原生协议（/v1/messages）+ 模型页 CC Switch 风格重构（供应商卡片+模型 chips）+ 自定义供应商多配置（profiles CRUD + 前端「我的供应商」）；218 测试全绿。下一步 = 云部署 + 压测实测容量
+- 2026-08-29：模型配置与供应商接入已交付——M4 wiring 修复（create_app 真正传 llm 给 TaskManager，配了 key 才生效，之前永远 mock）+ ModelConfigStore（env>JSON>settings 优先级、脱敏、key 只在服务端 0600）+ /v1/settings/model GET/PUT/presets/test + 控制台「模型」页（预设下拉/保存并生效/测试连接/清除 key）+ 保存热生效（set_llm，新建任务生效）；Anthropic 原生协议（/v1/messages）+ 模型页 CC Switch 风格重构（供应商卡片+模型 chips）+ 自定义供应商多配置（profiles CRUD + 前端「我的供应商」+ 模型目录多模型 + 请求路径展示）；218 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：审批进阶已交付（F1.3/F2.4）——TOFU 首用信任（同作用域获批后免 interrupt 直行）+ ApprovalBackend 抽象（Local/Redis 跨节点轮询唤醒 + 信任集共享 + fail-fast）+ ApprovalsView 审批中心（历史台账/集中决策/待审批徽标）；200 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：人机协作审批 + 工具权限分级已交付（F1.3/F2.4）——Tool.permission 分级 + 编排层审批门（graph interrupt → awaiting_approval → REST decide → Command(resume)）+ 审批 API + Web 审批卡片 + SSE approval 事件 + 超时自动拒绝；190 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-28：开发线已走完 MCP 客户端 + Skills（FR-2/FR-3）→ 多 Agent 并行（F1.4）→ CLI/OpenAI 兼容 REST API（F9.2/9.3）→ 前端入口闭环，下一步 = 云部署 + 压测实测容量
