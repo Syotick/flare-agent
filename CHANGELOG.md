@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Added（2026-08-30：Anthropic 协议 + 前端体验）
+- 模型网关新增 **Anthropic 原生协议**（Claude Messages API）：services/model_gateway/anthropic_compat.py（/v1/messages + x-api-key + anthropic-version，tool_use/tool_result 块配对、max_tokens 必填兜底、流式 text_delta）；协议兼容默认 openai + anthropic；presets 新增 Anthropic（claude-sonnet-4-5 / opus-4-1 / haiku-4-5）
+- 模型配置页 CC Switch 风格重构：供应商卡片网格（内置模拟 / OpenAI / Anthropic / DeepSeek / 通义 / 硅基流动…）+ 模型候选 chips 点击即选 + 协议 select mock|openai|anthropic
+- 知识库页重构：新增 Tooltip 悬停说明组件（ui/tooltip.tsx，基于 Radix）+ 卡片空态引导 + 技术词中文化
+
 ### Added
 - 项目初始化：文档骨架（调研/需求/架构/工程规范）、项目记忆（CLAUDE.md / AGENTS.md）
 - 高级 Agent 工程师面试题库（实践 + 真理）
