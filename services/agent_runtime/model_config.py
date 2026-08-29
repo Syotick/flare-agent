@@ -96,6 +96,18 @@ _SETTINGS_ATTR = {
 _VALID_PROVIDERS = ("mock", "openai", "anthropic")
 
 
+def _normalize_models(raw: Any) -> list[str]:
+    """模型目录：接受 list[str]；非列表按空处理，元素去空白去空、去重。"""
+    if not isinstance(raw, list):
+        return []
+    seen: list[str] = []
+    for m in raw:
+        s = str(m).strip()
+        if s and s not in seen:
+            seen.append(s)
+    return seen
+
+
 class ModelConfigStore:
     """模型配置持久化（本地 JSON + env 优先覆盖）。
 
@@ -219,14 +231,14 @@ class ModelConfigStore:
     def _profiles_path(self) -> Path:
         return self._path.with_name("model_profiles.json")
 
-    def _load_profiles(self) -> list[dict[str, str]]:
+    def _load_profiles(self) -> list[dict[str, Any]]:
         try:
             raw = json.loads(self._profiles_path.read_text(encoding="utf-8"))
             return raw.get("profiles", []) if isinstance(raw, dict) else []
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             return []
 
-    def _write_profiles(self, profiles: list[dict[str, str]]) -> None:
+    def _write_profiles(self, profiles: list[dict[str, Any]]) -> None:
         self._profiles_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._profiles_path.with_name(self._profiles_path.name + ".tmp")
         tmp.write_text(
@@ -238,13 +250,15 @@ class ModelConfigStore:
             os.chmod(self._profiles_path, 0o600)
 
     @staticmethod
-    def _sanitize_profile(profile: dict[str, str]) -> dict[str, Any]:
+    def _sanitize_profile(profile: dict[str, Any]) -> dict[str, Any]:
+        """脱敏视图：key 只回 has_api_key；模型目录（models）原样回。"""
         return {
             "id": profile["id"],
             "name": profile["name"],
             "provider": profile["provider"],
             "base_url": profile["base_url"],
             "model_name": profile["model_name"],
+            "models": list(profile.get("models") or []),
             "has_api_key": bool(profile.get("api_key")),
         }
 
@@ -294,10 +308,13 @@ class ModelConfigStore:
                 "provider": provider,
                 "base_url": base_url,
                 "model_name": model_name,
+                "models": _normalize_models(data.get("models")),
             }
             profiles.append(cur)
         # 合并后完整性校验（更新后也不允许缺关键字段）
         self._validate_profile(cur["name"], cur["provider"], cur["base_url"], cur["model_name"])
+        if "models" in data:
+            cur["models"] = _normalize_models(data.get("models"))
         if data.get("api_key"):  # 仅非空覆盖；空串/缺省保持已有 key
             cur["api_key"] = data["api_key"]
         self._write_profiles(profiles)

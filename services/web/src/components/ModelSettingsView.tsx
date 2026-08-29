@@ -31,6 +31,18 @@ function providerMeta(provider: string) {
   return PROVIDER_META[provider] ?? { label: "自定义协议", icon: Cloud, badge: "bg-muted text-muted-foreground" };
 }
 
+// 原始请求路径：按协议拼出真实请求 URL（参考 DSH，Base URL 下面直接可见）
+function requestPath(provider: string, baseUrl: string): string | null {
+  if (provider === "mock") return null;
+  const base = (baseUrl || "").trim().replace(/\/+$/, "");
+  if (!base) return null;
+  if (provider === "anthropic") {
+    const v1 = base.endsWith("/v1") ? "" : "/v1";
+    return "POST " + base + v1 + "/messages";
+  }
+  return "POST " + base + "/chat/completions";
+}
+
 function field(label: string, children: ReactNode, hint?: string) {
   return (
     <label className="flex flex-col gap-1.5">
@@ -56,6 +68,8 @@ export default function ModelSettingsView() {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customName, setCustomName] = useState("");
+  const [catalog, setCatalog] = useState<string[]>([]);
+  const [catalogInput, setCatalogInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [test, setTest] = useState<ModelTestResult | null>(null);
   const [saved, setSaved] = useState(false);
@@ -110,6 +124,7 @@ export default function ModelSettingsView() {
     }
     setProvider(p.provider);
     if (p.base_url) setBaseUrl(p.base_url);
+    setCatalog(p.models);
     if (p.models.length) setModelName(p.models[0]);
   };
 
@@ -120,6 +135,7 @@ export default function ModelSettingsView() {
     setProvider(pr.provider);
     if (pr.base_url) setBaseUrl(pr.base_url);
     if (pr.model_name) setModelName(pr.model_name);
+    setCatalog(pr.models);
   };
 
   const applyCustomProvider = (v: string) => {
@@ -192,6 +208,7 @@ export default function ModelSettingsView() {
         provider,
         base_url: baseUrl.trim(),
         model_name: modelName.trim(),
+        models: catalog,
       };
       if (apiKey !== "") body.api_key = apiKey;
       const savedProfile = await saveModelProfile(body);
@@ -226,8 +243,25 @@ export default function ModelSettingsView() {
   const src = SOURCE_LABEL[cfg?.api_key_source ?? "none"] ?? "未配置";
   const srcCls = SOURCE_CLS[cfg?.api_key_source ?? "none"] ?? SOURCE_CLS.none;
 
-  // 当前选中预设的模型候选
-  const candidateModels = presets.find((p) => p.id === selectedPresetId)?.models ?? [];
+  // 当前选中供应商的模型目录（预置或我的供应商）
+  const candidateModels =
+    (selectedProfileId
+      ? profiles.find((p) => p.id === selectedProfileId)?.models
+      : presets.find((p) => p.id === selectedPresetId)?.models) ?? [];
+
+  const addCatalog = () => {
+    const v = catalogInput.trim();
+    if (!v) return;
+    setCatalog((prev) => (prev.includes(v) ? prev : [...prev, v]));
+    setCatalogInput("");
+    setModelName(v);
+  };
+
+  const removeCatalog = (m: string) => {
+    const next = catalog.filter((x) => x !== m);
+    setCatalog(next);
+    if (modelName === m) setModelName(next[0] ?? "");
+  };
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -307,6 +341,11 @@ export default function ModelSettingsView() {
                   <span className="max-w-full truncate font-mono text-[10px] text-muted-foreground">
                     {p.base_url}
                   </span>
+                  {requestPath(p.provider, p.base_url) && (
+                    <span className="max-w-full truncate font-mono text-[9px] text-muted-foreground/60">
+                      {requestPath(p.provider, p.base_url)}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -371,6 +410,16 @@ export default function ModelSettingsView() {
                     {pr.model_name || ""}
                     {pr.has_api_key ? " · 已存 Key" : ""}
                   </span>
+                  {requestPath(pr.provider, pr.base_url) && (
+                    <span className="max-w-full truncate font-mono text-[9px] text-muted-foreground/60">
+                      {requestPath(pr.provider, pr.base_url)}
+                    </span>
+                  )}
+                  {pr.models.length > 1 && (
+                    <span className="text-[9px] text-muted-foreground/70">
+                      目录 {pr.models.length} 个模型
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -409,12 +458,68 @@ export default function ModelSettingsView() {
                     <input className={inputCls} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://你的端点/v1" disabled={provider === "mock"} />
                   )}
                 </div>
+                {requestPath(provider, baseUrl) && (
+                  <div className="rounded-lg bg-muted px-3 py-1.5 font-mono text-[10px] text-muted-foreground">
+                    请求路径：{requestPath(provider, baseUrl)}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {field("模型名称", <input className={inputCls} value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="如：claude-sonnet-5" />)}
+                  {field("当前模型", <input className={inputCls} value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="如：claude-sonnet-5" />)}
                   {field(
                     "API Key（可选）",
                     <input className={inputCls} type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="留空保持已有 Key" autoComplete="off" />
                   )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-medium text-muted-foreground">
+                    模型目录（可多个，点击切换当前模型）
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {catalog.map((m) => (
+                      <span
+                        key={m}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px]",
+                          modelName === m
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground"
+                        )}
+                      >
+                        <button type="button" className="cursor-pointer" onClick={() => setModelName(m)} title="设为当前模型">
+                          {m}
+                        </button>
+                        <button
+                          type="button"
+                          className="cursor-pointer rounded-full p-0.5 text-muted-foreground/50 hover:bg-destructive/15 hover:text-destructive"
+                          title="移出目录"
+                          onClick={() => removeCatalog(m)}
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      className={cn(inputCls, "w-44")}
+                      value={catalogInput}
+                      onChange={(e) => setCatalogInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCatalog();
+                        }
+                      }}
+                      placeholder="输入模型名回车添加"
+                    />
+                    <button
+                      type="button"
+                      onClick={addCatalog}
+                      className="rounded-lg border border-border px-2.5 py-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      添加
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -444,6 +549,11 @@ export default function ModelSettingsView() {
               </span>
             )}
           </div>
+          {requestPath(provider, baseUrl) && (
+            <div className="rounded-lg bg-muted px-3 py-1.5 font-mono text-[10px] text-muted-foreground">
+              请求路径：{requestPath(provider, baseUrl)}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             {field(
               "供应商协议",
@@ -475,7 +585,7 @@ export default function ModelSettingsView() {
 
           {candidateModels.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-muted-foreground">模型：</span>
+              <span className="text-[11px] text-muted-foreground">模型目录：</span>
               {candidateModels.map((m) => (
                 <button
                   key={m}

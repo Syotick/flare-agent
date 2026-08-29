@@ -45,12 +45,16 @@ class ModelTestIn(BaseModel):
 
 
 class ModelProfileIn(BaseModel):
-    """自定义供应商载荷：新建或更新；api_key 空串/缺省 = 保持已有 key。"""
+    """自定义供应商载荷：新建或更新；api_key 空串/缺省 = 保持已有 key。
+
+    models：模型目录（多个候选，前端切换用）；缺省保持、[] 清空。
+    """
 
     name: str | None = None
     provider: str | None = None
     base_url: str | None = None
     model_name: str | None = None
+    models: list[str] | None = None
     api_key: str | None = None
 
 

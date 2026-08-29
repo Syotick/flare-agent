@@ -454,6 +454,7 @@ export interface ModelProfile {
   provider: string;
   base_url: string;
   model_name: string;
+  models: string[];
   has_api_key: boolean;
 }
 
@@ -463,6 +464,7 @@ export interface ModelProfileBody {
   provider?: string;
   base_url?: string;
   model_name?: string;
+  models?: string[];
   api_key?: string;
 }
 
