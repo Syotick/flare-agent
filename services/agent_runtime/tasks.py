@@ -104,6 +104,15 @@ class TaskManager:
         """F1.4：供多 Agent 子任务运行时共享同一模型入口。"""
         return self._llm
 
+    def set_llm(self, llm) -> Any:
+        """模型设置：热替换模型入口（对新建任务生效；正在运行的任务不受影响）。
+
+        返回旧实例，调用方负责 await 其 close() 释放 HTTP 客户端等资源。
+        """
+        old = self._llm
+        self._llm = llm
+        return old
+
     @property
     def approval(self) -> ApprovalManager | None:
         """F1.3：审批管理器（供审批路由/测试读取；None=未启用审批门）。"""

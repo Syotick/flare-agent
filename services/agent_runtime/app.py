@@ -15,10 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from agent_runtime.approval import ApprovalManager, ApprovalPolicy, RedisApprovalBackend
+from agent_runtime.model_config import ModelConfigStore
 from agent_runtime.routes.approval import build_approval_router
 from agent_runtime.routes.capabilities import build_capabilities_router
 from agent_runtime.routes.kb import build_kb_router
 from agent_runtime.routes.memory import build_memory_router
+from agent_runtime.routes.model import build_model_router
 from agent_runtime.routes.openai_compat import build_openai_router
 from agent_runtime.routes.ops import build_ops_router
 from agent_runtime.routes.tasks import build_tasks_router
@@ -39,6 +41,7 @@ from mcp.gateway import McpGateway, McpServerConfig
 from mcp.mcp_tools import build_mcp_connect_tool, build_mcp_list_tool
 from memory.mem_tools import build_memory_tools
 from memory.memory import MemoryManager
+from model_gateway.gateway import build_provider
 from rag.kb_tools import build_kb_search_tool
 from rag.pipeline import KnowledgeBase
 from sandbox import build_sandbox
@@ -141,6 +144,8 @@ def create_app(
         tofu_enabled=settings.approval_tofu,
         tofu_scope=settings.approval_tofu_scope,
     )
+    # 模型配置存储：控制台「模型」页可读写；真实环境变量优先于本地 JSON
+    model_store = ModelConfigStore(settings, settings.model_config_path)
     if task_manager is None:
         if kb is None:
             kb = KnowledgeBase()  # 开发默认：内存 SQLite + HashEmbedder
@@ -158,11 +163,15 @@ def create_app(
         skill_registry = SkillRegistry(settings.skills_dir)
         for tool in build_skill_tools(skill_registry):
             registry.register(tool)
+        # M4 wiring 修复：真实服务按有效配置（env>本地JSON>默认）装配模型网关，
+        # 而非固定 MockModelProvider——配置了 openai/DeepSeek/通义 key 才能真正生效
+        llm = build_provider(model_store.to_settings())
         task_manager = TaskManager(
             registry=registry,
             memory=mem,
             store=_build_task_store(settings),
             approval=approval_manager,  # F1.3：任务图启用审批门
+            llm=llm,
         )
 
     # F1.4：多 Agent 子任务运行时（共享父的 llm/registry，工具注册进同一注册表）
@@ -235,6 +244,9 @@ def create_app(
 
     # F1.3: 审批 API（列待审批 / 决策批准|拒绝——唤醒挂起的任务执行）
     app.include_router(build_approval_router(approval_manager))
+
+    # 模型设置 API（控制台「模型」页：查看/保存/测试连通性；保存后热生效）
+    app.include_router(build_model_router(model_store, task_manager))
 
     # M6: 运维 API（SLO 状态 / 错误预算）
     app.include_router(build_ops_router(settings))

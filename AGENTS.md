@@ -20,6 +20,7 @@
 7. 强企业级技术栈，云原生
 
 ## 已确认决策（2026-08-27 / 2026-08-28 / 2026-08-29）
+- 2026-08-29：模型配置与供应商接入已交付——M4 wiring 修复（create_app 真正传 llm 给 TaskManager，配了 key 才生效，之前永远 mock）+ ModelConfigStore（env>JSON>settings 优先级、脱敏、key 只在服务端 0600）+ /v1/settings/model GET/PUT/presets/test + 控制台「模型」页（预设下拉/保存并生效/测试连接/清除 key）+ 保存热生效（set_llm，新建任务生效）；211 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：审批进阶已交付（F1.3/F2.4）——TOFU 首用信任（同作用域获批后免 interrupt 直行）+ ApprovalBackend 抽象（Local/Redis 跨节点轮询唤醒 + 信任集共享 + fail-fast）+ ApprovalsView 审批中心（历史台账/集中决策/待审批徽标）；200 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：人机协作审批 + 工具权限分级已交付（F1.3/F2.4）——Tool.permission 分级 + 编排层审批门（graph interrupt → awaiting_approval → REST decide → Command(resume)）+ 审批 API + Web 审批卡片 + SSE approval 事件 + 超时自动拒绝；190 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-28：开发线已走完 MCP 客户端 + Skills（FR-2/FR-3）→ 多 Agent 并行（F1.4）→ CLI/OpenAI 兼容 REST API（F9.2/9.3）→ 前端入口闭环，下一步 = 云部署 + 压测实测容量
@@ -56,8 +57,9 @@
 - **前端入口闭环 + 能力盘点（已交付）**：routes/capabilities.py 只读路由 /v1/capabilities/{tools,skills,skills/{name},mcp,subagent}（可选依赖未装配返回空态，注入式测试不炸）；CapabilitiesView 四页签（工具 JSON-Schema/技能指令+资源/MCP 状态/多 Agent 记录）+ ApiView（OpenAI 兼容 Playground + /v1/models + curl/CLI/SDK 示例）；侧栏死占位项"技能·轨迹·工具"→ 可点「能力」+ 新增「开发者」。治理原则：一个能力 = 一个 REST 端点 + 一个前端视图（死代码治理）。坑：skill_registry 只在默认装配路径创建，能力路由要挂可选依赖；前端 API 统一放 api.ts；tsc strict noUnusedLocals。learning/11 §10。178 测试全绿 + tsc/vite build + 真实服务器冒烟。
 - **人机协作审批 + 工具权限分级（已交付，F1.3/F2.4）**：Tool.permission 分级（read/write/destructive，默认 read；echo=read、sandbox_run=destructive）+ ApprovalPolicy（默认 destructive 需审批，FLARE_APPROVAL_REQUIRE_LEVEL 可收紧到 write，extra_tools 白名单）+ 审批门（graph tool_executor 敏感工具执行前 interrupt 挂起 → tasks._execute 两段式流：astream 在 __interrupt__ 后结束 → 登记审批 + awaiting_approval + asyncio.Event 等待 → Command(resume) 同 config 续跑；批准放行/拒绝回灌 APPROVAL_REJECTED/超时自动拒绝 timed_out）+ 审批 API routes/approval.py（GET /v1/approvals ?pending_only + GET {id} + POST {id}/decide，重复决策 409/未知 404）+ SSE approval/approval_decision 事件 + Web ChatView 审批卡片（批准/拒绝按钮+状态回灌）+ Sidebar awaiting_approval 黄点 + mock「沙箱执行」演示触发器。learning/16。坑：interrupt 一次性流（resume 要第二段 astream 同 config）；审批超时安全网 300s；asyncio.Event 单进程（多实例需 Redis，M5 TODO）；真实服务器冒烟用 Python httpx（Windows curl 传 UTF-8 载荷会解码错）；uvicorn 入口 agent_runtime.main:app。190 测试全绿（新增 12 test_approval），ruff/black 干净，tsc/vite build 通过，真实服务器冒烟打通。
 - **TOFU + 多实例审批后端 + 审批中心（已交付，F1.3/F2.4 进阶）**：TOFU 首用信任（同作用域=会话线程默认获批一次后免 interrupt 直行，FLARE_APPROVAL_TOFU/TOFU_SCOPE 可调，信任记录 manager 统一门控）；ApprovalBackend 抽象（Local 进程内 asyncio.Event + Redis 多实例共享：请求 hash/待审批 set/有序索引 zset/TOFU 信任 set，跨节点轮询唤醒，FLARE_APPROVAL_BACKEND=redis，连不上 fail-fast 任务优雅 failed）；graph/tasks/routes 全 async + approval_scope 透传；审批中心 ApprovalsView（历史台账 + 待审批 5s 自刷新 + 批准/拒绝 + 决策人/原因）+ Sidebar「审批」导航待审批徽标 + App 8s 轮询。learning/16 补七~十章。坑：后端 decide 不再自动记信任（移到 manager 门控）；写 TSX 内容禁用反引号（会截断外层模板串）。200 测试全绿（新增 10），ruff/black 干净，tsc/vite 通过，冒烟打通（TOFU 同线程免审 + Redis fail-fast）。
+- **模型配置与供应商接入（已交付，M4 wiring 修复 + 控制台「模型」页）**：create_app 装配 build_provider（修复永远 mock）；ModelConfigStore env>JSON>settings + 脱敏；GET/PUT/presets/test；热生效 set_llm；ModelSettingsView + Sidebar「模型」；learning/17。坑：Settings 属性名 model_provider vs 本地字段 provider（映射表）；store 默认 path 从 settings.model_config_path 取；长中文文档用 Python heredoc 写。
 - 下一步：服务器到位后的云部署 + 压测实测容量
-- 回归基线：全量 200 测试全绿（test_approval 22 + test_mcp 21 + test_openai_compat 6 + test_flare_cli 5 + test_capabilities 6）
+- 回归基线：全量 211 测试全绿（test_approval 22 + test_settings_model 11 + test_mcp 21 + test_openai_compat 6 + test_flare_cli 5 + test_capabilities 6）
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）

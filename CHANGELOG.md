@@ -69,6 +69,15 @@
 - 教学文档 learning/16 补 TOFU/Redis 后端/审批中心章节（已登记 docs/README）；测试新增 10（test_approval：TOFU 信任/关闭/拒绝不信任/作用域解析/Redis 跨实例决策+超时+索引+manager 经 Redis 端到端/图内 TOFU 免第二次 interrupt/任务同线程续聊免审批），全量 200 全绿，ruff/black 干净，tsc(strict)+vite build 通过
 - 冒烟验证：真实 uvicorn——同线程任务1 审批→批准→任务2 同线程再触发沙箱免审批直行（saw_awaiting=False）、审批历史仅 1 条已批准；FLARE_APPROVAL_BACKEND=redis 无 Redis 时任务优雅 failed（连接错误入 error 字段，不崩）
 
+### Added（模型配置与供应商接入 + M4 wiring 修复，控制台「模型」页，2026-08-29）
+- **M4 wiring 修复（关键）**：create_app 构造 TaskManager 从未传 llm -> 真实服务永远跑 MockModelProvider，配置了 FLARE_MODEL_API_KEY 也不生效（能力层做了、运行链路没接上=死代码）。修复：llm = build_provider(model_store.to_settings()) 传入 TaskManager，mock|openai 真正按配置装配
+- ModelConfigStore（agent_runtime/model_config.py）：生效优先级 **真实环境变量 > 本地 JSON(data/model_config.json) > pydantic(.env/默认)**；原子落盘（临时文件+os.replace）+ chmod 0600；环境变量名按 Settings 属性映射（FLARE_MODEL_PROVIDER 而非 FLARE_PROVIDER）
+- 模型设置 API（routes/model.py）：GET /v1/settings/model（脱敏：key 永不回传，只回 has_api_key/api_key_source）+ PUT（部分更新，api_key 空串=清除）+ GET presets（OpenAI/DeepSeek/通义百炼/硅基流动/Ollama/vLLM/自定义）+ POST test（body 可带临时覆盖；mock 直返 ok；openai 协议 GET {base}/models 验端点+鉴权）
+- 热生效：PUT 保存后 task_manager.set_llm 重建模型网关（新建任务生效，运行中任务不受影响）；Settings 加 model_config_path
+- 前端「模型」视图（ModelSettingsView）：供应商预设下拉/协议选择/Base URL/模型名/API Key(password，留空=保持不变，显式「清除已存 Key」)/保存并生效/测试连接（成功显示检测到的模型 chips）；Sidebar 新增「模型」导航；api.ts 加 getModelSettings/saveModelSettings/getModelPresets/testModelConnection
+- 教学文档 learning/17（已登记 docs/README）；测试新增 11（test_settings_model：默认 mock/持久化脱敏/明文仅服务端/env 覆盖/清除 key/校验/presets/PUT-GET 流/热生效换 llm/test mock+不可达/create_app 挂载），全量 211 全绿，ruff/black 干净，tsc(strict)+vite build 通过
+- 冒烟验证：真实 uvicorn——GET 默认 mock -> PUT 保存(脱敏+落盘 data/model_config.json) -> GET 回读 -> test mock ok / openai+fake key 401（真实端点可达） / 不可达 ConnectError -> PUT 非法 provider 422 -> 清除 key；完成后已还原干净 mock 状态
+
 ### Fixed（Round 6 审查，2026-08-28）
 - M1 图内工具 schema 冻结：graph.actor 每轮用当前 registry 重建 system 工具清单（原位替换）——mcp_connect 中途注册的新工具同任务内对模型可见可调；补 ReAct 图端到端用例
 - M2 SSE 跨 chunk 拆分：新增 _split_sse_events 增量切分（只消费空行结尾的完整事件，残余保留 buffer）；testing.py 支持 sse_chunk 分块写出 + sse_response_delay

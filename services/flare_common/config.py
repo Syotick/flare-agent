@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     model_api_key: str = ""
     model_base_url: str = "http://localhost:9001/v1"  # 本地 vLLM 默认端口
     model_name: str = "gpt-4o-mini"
+    # 模型设置页（控制台「模型」）本地持久化位置；真实环境变量优先于该文件
+    model_config_path: str = "data/model_config.json"
 
     # M5：任务存储（memory|sqlite|redis）；OTel 导出端点（空=不启用）
     task_store: str = "memory"

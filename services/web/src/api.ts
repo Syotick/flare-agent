@@ -385,3 +385,65 @@ export async function decideApproval(
   );
 }
 
+
+// ---------- 模型设置（控制台「模型」页） ----------
+
+export interface ModelSettings {
+  provider: string; // mock | openai
+  base_url: string;
+  model_name: string;
+  has_api_key: boolean;
+  api_key_source: string; // env | file | none
+  configured: boolean;
+}
+
+export interface ModelPreset {
+  id: string;
+  name: string;
+  provider: string;
+  base_url: string;
+  models: string[];
+}
+
+export interface ModelTestResult {
+  ok: boolean;
+  mode: string;
+  models?: string[];
+  error?: string;
+}
+
+export interface ModelConfigBody {
+  provider?: string;
+  base_url?: string;
+  model_name?: string;
+  api_key?: string;
+}
+
+export async function getModelSettings(): Promise<ModelSettings> {
+  return json<ModelSettings>(await fetch("/v1/settings/model"));
+}
+
+export async function saveModelSettings(body: ModelConfigBody): Promise<ModelSettings> {
+  return json<ModelSettings>(
+    await fetch("/v1/settings/model", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  );
+}
+
+export async function getModelPresets(): Promise<ModelPreset[]> {
+  return json<ModelPreset[]>(await fetch("/v1/settings/model/presets"));
+}
+
+export async function testModelConnection(body?: ModelConfigBody): Promise<ModelTestResult> {
+  return json<ModelTestResult>(
+    await fetch("/v1/settings/model/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    })
+  );
+}
+

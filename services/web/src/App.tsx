@@ -3,6 +3,7 @@ import { createTask, deleteTask, getTask, listApprovals, listTasks } from "./api
 import ApiView from "./components/ApiView";
 import ApprovalsView from "./components/ApprovalsView";
 import CapabilitiesView from "./components/CapabilitiesView";
+import ModelSettingsView from "./components/ModelSettingsView";
 import ChatView from "./components/ChatView";
 import Composer from "./components/Composer";
 import KnowledgeBaseView from "./components/KnowledgeBaseView";
@@ -11,7 +12,7 @@ import OpsView from "./components/OpsView";
 import Sidebar from "./components/Sidebar";
 import type { Item } from "./types";
 
-export type ViewId = "chat" | "kb" | "memory" | "ops" | "capabilities" | "api" | "approvals";
+export type ViewId = "chat" | "kb" | "memory" | "ops" | "capabilities" | "api" | "approvals" | "model";
 
 let nextId = 1;
 
@@ -324,6 +325,8 @@ export default function App() {
           <ApiView />
         ) : view === "approvals" ? (
           <ApprovalsView />
+        ) : view === "model" ? (
+          <ModelSettingsView />
         ) : (
           <OpsView />
         )}
