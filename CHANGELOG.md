@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Fixed（2026-08-29：助手回复不显示 bug）
+- 任务快速完成时 step(final)+result 几乎同时到达，打字机组件 done=true 跳过渲染导致回复空白
+  → 修复：done 时立即补全全文；真实浏览器(Playwright+Chrome)验证「你好」完整回复。
+- tasks stream 路由新增 SSE 连接观测日志（INFO）。
+
 ### Added（2026-08-30：Anthropic 协议 + 前端体验）
 - 模型网关新增 **Anthropic 原生协议**（Claude Messages API）：services/model_gateway/anthropic_compat.py（/v1/messages + x-api-key + anthropic-version，tool_use/tool_result 块配对、max_tokens 必填兜底、流式 text_delta）；协议兼容默认 openai + anthropic；presets 新增 Anthropic（claude-sonnet-4-5 / opus-4-1 / haiku-4-5）
 - 模型配置页 CC Switch 风格重构：供应商卡片网格（内置模拟 / OpenAI / Anthropic / DeepSeek / 通义 / 硅基流动…）+ 模型候选 chips 点击即选 + 协议 select mock|openai|anthropic
