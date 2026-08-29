@@ -13,6 +13,7 @@ from collections.abc import AsyncIterator
 
 from flare_common.config import Settings
 from flare_common.errors import ValidationError
+from model_gateway.anthropic_compat import AnthropicCompatibleProvider
 from model_gateway.mock import MockModelProvider
 from model_gateway.openai_compat import OpenAICompatibleProvider, ProviderError
 from model_gateway.providers import LLMMessage, LLMResponse, ModelProvider
@@ -74,9 +75,10 @@ class RetryProvider:
 
 
 def build_provider(settings: Settings) -> ModelProvider:
-    """按配置装配供应商（mock | openai）。
+    """按配置装配供应商（mock | openai | anthropic）。
 
-    openai = OpenAI 兼容协议，覆盖 DeepSeek/DashScope/vLLM（改 base_url/api_key 即可）。
+    - openai    = OpenAI 兼容协议，覆盖 DeepSeek/DashScope/vLLM（改 base_url/api_key 即可）
+    - anthropic = Claude Messages 原生协议（/v1/messages + x-api-key 认证）
     """
     if settings.model_provider == "mock":
         return MockModelProvider()
@@ -87,4 +89,13 @@ def build_provider(settings: Settings) -> ModelProvider:
             model=settings.model_name,
         )
         return RetryProvider(base)
-    raise ValidationError(f"未知 model_provider: {settings.model_provider}（可选 mock|openai）")
+    if settings.model_provider == "anthropic":
+        base = AnthropicCompatibleProvider(
+            api_key=settings.model_api_key,
+            base_url=settings.model_base_url,
+            model=settings.model_name,
+        )
+        return RetryProvider(base)
+    raise ValidationError(
+        f"未知 model_provider: {settings.model_provider}（可选 mock|openai|anthropic）"
+    )

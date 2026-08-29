@@ -117,8 +117,9 @@ def test_presets_list(tmp_path: Path) -> None:
     with TestClient(_router_app(tmp_path)[0]) as client:
         presets = client.get("/v1/settings/model/presets").json()
         ids = {p["id"] for p in presets}
-        assert {"openai", "deepseek", "dashscope", "custom"}.issubset(ids)
-        assert all(p["provider"] == "openai" for p in presets)
+        assert {"anthropic", "openai", "deepseek", "dashscope", "custom"}.issubset(ids)
+        assert all(p["provider"] in ("openai", "anthropic") for p in presets)
+        assert any(p["id"] == "anthropic" and p["provider"] == "anthropic" for p in presets)
 
 
 def test_put_get_flow(tmp_path: Path) -> None:

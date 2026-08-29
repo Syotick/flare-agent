@@ -20,8 +20,15 @@ from typing import Any
 from flare_common.config import Settings
 from flare_common.errors import ValidationError
 
-# 模型供应商预设（前端下拉一键填充 base_url + 模型候选；同 OpenAI /chat/completions 协议）
+# 模型供应商预设（前端一键填充 base_url + 模型候选；OpenAI 兼容 / Anthropic 原生协议）
 MODEL_PRESETS: list[dict[str, Any]] = [
+    {
+        "id": "anthropic",
+        "name": "Anthropic (Claude)",
+        "provider": "anthropic",
+        "base_url": "https://api.anthropic.com",
+        "models": ["claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"],
+    },
     {
         "id": "openai",
         "name": "OpenAI",
@@ -85,7 +92,7 @@ _SETTINGS_ATTR = {
     "model_name": "model_name",
     "api_key": "model_api_key",
 }
-_VALID_PROVIDERS = ("mock", "openai")
+_VALID_PROVIDERS = ("mock", "openai", "anthropic")
 
 
 class ModelConfigStore:

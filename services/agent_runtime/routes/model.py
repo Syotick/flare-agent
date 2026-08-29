@@ -23,7 +23,7 @@ from agent_runtime.model_config import MODEL_PRESETS, ModelConfigStore
 from flare_common.errors import ValidationError
 from model_gateway.gateway import build_provider
 
-_PROVIDERS = ("mock", "openai")
+_PROVIDERS = ("mock", "openai", "anthropic")
 
 
 class ModelConfigIn(BaseModel):
@@ -53,25 +53,37 @@ async def _test_connection(store: ModelConfigStore, payload: ModelTestIn | None)
             if val != "":
                 eff[key] = val
     if eff["provider"] not in _PROVIDERS:
-        raise ValidationError(f"未知 model_provider: {eff['provider']!r}（可选 mock|openai）")
+        raise ValidationError(
+            f"未知 model_provider: {eff['provider']!r}（可选 {'|'.join(_PROVIDERS)}）"
+        )
     if eff["provider"] == "mock":
         return {"ok": True, "mode": "mock", "models": ["flare-agent"]}
 
     base = eff["base_url"].rstrip("/")
-    headers = {"Authorization": f"Bearer {eff['api_key']}"} if eff["api_key"] else {}
+    # Anthropic 原生：/v1/models 列表（x-api-key + anthropic-version 认证）
+    if eff["provider"] == "anthropic":
+        headers = {"anthropic-version": "2023-06-01"}
+        if eff["api_key"]:
+            headers["x-api-key"] = eff["api_key"]
+        url = base + ("/v1/models" if not base.endswith("/v1") else "/models")
+        mode = "anthropic"
+    else:
+        headers = {"Authorization": f"Bearer {eff['api_key']}"} if eff["api_key"] else {}
+        url = base + "/models"
+        mode = "openai"
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(base + "/models", headers=headers)
+            resp = await client.get(url, headers=headers)
     except Exception as exc:  # noqa: BLE001 - 网络/超时错误要原样回显给用户
-        return {"ok": False, "mode": "openai", "error": f"{type(exc).__name__}: {exc}"}
+        return {"ok": False, "mode": mode, "error": f"{type(exc).__name__}: {exc}"}
     if resp.status_code >= 400:
         body = (resp.text or "")[:200]
-        return {"ok": False, "mode": "openai", "error": f"HTTP {resp.status_code}: {body}"}
+        return {"ok": False, "mode": mode, "error": f"HTTP {resp.status_code}: {body}"}
     try:
         models = [m.get("id") for m in (resp.json().get("data") or []) if m.get("id")]
     except Exception:  # noqa: BLE001
         models = []
-    return {"ok": True, "mode": "openai", "models": models[:50]}
+    return {"ok": True, "mode": mode, "models": models[:50]}
 
 
 def build_model_router(

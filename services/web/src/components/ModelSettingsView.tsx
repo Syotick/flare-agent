@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  CheckCircle2, Cpu, KeyRound, Loader2, PlugZap, Save, Trash2, XCircle,
+  Bot, CheckCircle2, Cloud, Cpu, KeyRound, Loader2, PlugZap, Save, Sparkles, Trash2, XCircle,
 } from "lucide-react";
 import {
   getModelPresets, getModelSettings, saveModelSettings, testModelConnection,
@@ -19,6 +19,16 @@ const SOURCE_CLS: Record<string, string> = {
   file: "bg-muted text-muted-foreground border border-border",
   none: "bg-muted text-muted-foreground border border-border",
 };
+
+const PROVIDER_META: Record<string, { label: string; icon: typeof Cpu; badge: string }> = {
+  mock: { label: "内置模拟", icon: Bot, badge: "bg-muted text-muted-foreground" },
+  anthropic: { label: "Anthropic 协议", icon: Sparkles, badge: "bg-primary/10 text-primary" },
+  openai: { label: "OpenAI 兼容", icon: Cpu, badge: "bg-success/10 text-success" },
+};
+
+function providerMeta(provider: string) {
+  return PROVIDER_META[provider] ?? { label: "自定义协议", icon: Cloud, badge: "bg-muted text-muted-foreground" };
+}
 
 function field(label: string, children: ReactNode, hint?: string) {
   return (
@@ -40,6 +50,7 @@ export default function ModelSettingsView() {
   const [baseUrl, setBaseUrl] = useState("");
   const [modelName, setModelName] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [test, setTest] = useState<ModelTestResult | null>(null);
   const [saved, setSaved] = useState(false);
@@ -61,12 +72,33 @@ export default function ModelSettingsView() {
     load();
   }, []);
 
-  const applyPreset = (id: string) => {
-    const p = presets.find((x) => x.id === id);
-    if (!p) return;
+  // 根据当前生效配置回填选中的供应商卡片（能匹配预设就高亮，否则视为自定义）
+  useEffect(() => {
+    if (!cfg || !presets.length) return;
+    if (cfg.provider === "mock") {
+      setSelectedPresetId("mock");
+    } else {
+      const hit = presets.find((p) => p.provider === cfg.provider && p.base_url === cfg.base_url);
+      setSelectedPresetId(hit ? hit.id : null);
+    }
+  }, [cfg, presets]);
+
+  const applyPreset = (p: ModelPreset | null) => {
+    setSelectedPresetId(p ? p.id : "mock");
+    if (!p) {
+      setProvider("mock");
+      setBaseUrl("");
+      setModelName("");
+      return;
+    }
     setProvider(p.provider);
     if (p.base_url) setBaseUrl(p.base_url);
     if (p.models.length) setModelName(p.models[0]);
+  };
+
+  const applyCustomProvider = (v: string) => {
+    setProvider(v);
+    setSelectedPresetId(null);
   };
 
   const bodyFromForm = (): ModelConfigBody => {
@@ -124,14 +156,16 @@ export default function ModelSettingsView() {
 
   const src = SOURCE_LABEL[cfg?.api_key_source ?? "none"] ?? "未配置";
   const srcCls = SOURCE_CLS[cfg?.api_key_source ?? "none"] ?? SOURCE_CLS.none;
+  // 当前选中预设的模型候选（chips 点击即选）
+  const candidateModels =
+    presets.find((p) => p.id === selectedPresetId)?.models ?? [];
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-4 px-6 py-6 pb-8">
+      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-6 py-6 pb-8">
         <div className="flex items-center gap-2">
           <Cpu className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold">模型设置</h1>
-
         </div>
         <p className="text-[12px] text-muted-foreground">
           选择供应商并填入 API Key，即可接入真实大模型。Key 只在服务端保存，本页不显示明文。
@@ -158,34 +192,113 @@ export default function ModelSettingsView() {
           </div>
         </div>
 
-        {/* 表单 */}
+        {/* 供应商选择（CC Switch 风格卡片） */}
+        <div>
+          <div className="mb-2 text-[12px] font-medium text-muted-foreground">选择供应商</div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+            <button
+              type="button"
+              onClick={() => applyPreset(null)}
+              className={cn(
+                "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors",
+                selectedPresetId === "mock"
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-card/70 hover:border-primary/50"
+              )}
+            >
+              <span className="flex items-center gap-1.5 text-[13px] font-medium">
+                <Bot className="h-4 w-4 text-primary" />
+                内置模拟
+              </span>
+              <span className="text-[10px] text-muted-foreground">无需 Key，本地开发调试</span>
+            </button>
+            {presets.map((p) => {
+              const meta = providerMeta(p.provider);
+              const Icon = meta.icon;
+              const active = selectedPresetId === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className={cn(
+                    "flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors",
+                    active
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card/70 hover:border-primary/50"
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-[13px] font-medium">
+                    <Icon className="h-4 w-4 text-primary" />
+                    {p.name}
+                  </span>
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-[9px]", meta.badge)}>
+                    {meta.label}
+                  </span>
+                  <span className="max-w-full truncate font-mono text-[10px] text-muted-foreground">
+                    {p.base_url}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 配置表单 */}
         <div className="flex flex-col gap-3.5 rounded-xl border border-border bg-card/70 p-4">
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            {field(
-              "供应商预设",
-              <select className={inputCls} value="" onChange={(e) => applyPreset(e.target.value)}>
-                <option value="">选择预设…</option>
-                {presets.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            )}
             {field(
               "供应商协议",
               <select
                 className={inputCls}
                 value={provider}
-                onChange={(e) => setProvider(e.target.value)}
+                onChange={(e) => applyCustomProvider(e.target.value)}
               >
                 <option value="mock">mock（内置模拟模型，无需 Key）</option>
                 <option value="openai">openai（OpenAI 兼容）</option>
+                <option value="anthropic">anthropic（Anthropic / Claude 原生）</option>
               </select>
             )}
-            {field("Base URL", <input className={inputCls} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.deepseek.com/v1" />)}
-            {field("模型名称", <input className={inputCls} value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="deepseek-chat" />, "可留空跟随预设；mock 模式忽略")}
+            {field(
+              "Base URL",
+              <input
+                className={inputCls}
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder={
+                  provider === "anthropic"
+                    ? "https://api.anthropic.com"
+                    : provider === "mock"
+                      ? "（内置模拟无需填写）"
+                      : "https://api.deepseek.com/v1"
+                }
+                disabled={provider === "mock"}
+              />
+            )}
           </div>
+
+          {field("模型名称", <input className={inputCls} value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder={provider === "mock" ? "（内置模拟忽略）" : "claude-sonnet-4-5"} />, "可留空跟随预设；mock 模式忽略")}
+
+          {candidateModels.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground">模型：</span>
+              {candidateModels.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setModelName(m)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-0.5 font-mono text-[10px] transition-colors",
+                    modelName === m
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
 
           {field(
             "API Key",
@@ -263,9 +376,15 @@ export default function ModelSettingsView() {
                 test.models && test.models.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {test.models.map((m) => (
-                      <span key={m} className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-foreground">
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setModelName(m)}
+                        className="rounded-full border border-success/30 bg-muted px-2 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-success"
+                        title="点击使用该模型"
+                      >
                         {m}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 ) : (
