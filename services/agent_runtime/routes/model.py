@@ -44,6 +44,16 @@ class ModelTestIn(BaseModel):
     api_key: str | None = None
 
 
+class ModelProfileIn(BaseModel):
+    """自定义供应商载荷：新建或更新；api_key 空串/缺省 = 保持已有 key。"""
+
+    name: str | None = None
+    provider: str | None = None
+    base_url: str | None = None
+    model_name: str | None = None
+    api_key: str | None = None
+
+
 async def _test_connection(store: ModelConfigStore, payload: ModelTestIn | None) -> dict[str, Any]:
     """连通性测试：mock 直接 ok；openai 协议 GET {base}/models 验证端点/鉴权。"""
     eff = store.effective()
@@ -122,5 +132,29 @@ def build_model_router(
     @router.post("/test")
     async def test_connection(payload: ModelTestIn | None = None) -> dict[str, Any]:
         return await _test_connection(store, payload)
+
+    # ---------- 自定义供应商（可保存多个，参考 DSH/CC Switch 多 provider 管理） ----------
+
+    @router.get("/profiles")
+    async def list_profiles() -> list[dict[str, Any]]:
+        return store.list_profiles()
+
+    @router.post("/profiles")
+    async def create_profile(payload: ModelProfileIn) -> dict[str, Any]:
+        body = payload.model_dump(exclude_none=True)
+        if not (body.get("name") or "").strip():
+            raise ValidationError("供应商名称不能为空")
+        return store.save_profile(body)
+
+    @router.put("/profiles/{profile_id}")
+    async def update_profile(profile_id: str, payload: ModelProfileIn) -> dict[str, Any]:
+        body = payload.model_dump(exclude_none=True)
+        body["id"] = profile_id
+        return store.save_profile(body)
+
+    @router.delete("/profiles/{profile_id}")
+    async def delete_profile(profile_id: str) -> dict[str, Any]:
+        store.delete_profile(profile_id)
+        return {"ok": True}
 
     return router

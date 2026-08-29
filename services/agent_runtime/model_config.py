@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -209,3 +210,102 @@ class ModelConfigStore:
         with contextlib.suppress(OSError):
             os.chmod(self._path, 0o600)
         return self.describe()
+
+    # ---------- 自定义供应商（profiles） ----------
+    # 独立文件 data/model_profiles.json：用户自建供应商，可保存多个、随时切换激活。
+    # 与全局生效配置分离：激活仍走 save()（写主配置），profiles 只是可复用的配置集。
+
+    @property
+    def _profiles_path(self) -> Path:
+        return self._path.with_name("model_profiles.json")
+
+    def _load_profiles(self) -> list[dict[str, str]]:
+        try:
+            raw = json.loads(self._profiles_path.read_text(encoding="utf-8"))
+            return raw.get("profiles", []) if isinstance(raw, dict) else []
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return []
+
+    def _write_profiles(self, profiles: list[dict[str, str]]) -> None:
+        self._profiles_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self._profiles_path.with_name(self._profiles_path.name + ".tmp")
+        tmp.write_text(
+            json.dumps({"profiles": profiles}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        tmp.replace(self._profiles_path)
+        with contextlib.suppress(OSError):
+            os.chmod(self._profiles_path, 0o600)
+
+    @staticmethod
+    def _sanitize_profile(profile: dict[str, str]) -> dict[str, Any]:
+        return {
+            "id": profile["id"],
+            "name": profile["name"],
+            "provider": profile["provider"],
+            "base_url": profile["base_url"],
+            "model_name": profile["model_name"],
+            "has_api_key": bool(profile.get("api_key")),
+        }
+
+    @staticmethod
+    def _validate_profile(name: str, provider: str, base_url: str, model_name: str) -> None:
+        if not name.strip():
+            raise ValidationError("供应商名称不能为空")
+        if provider not in _VALID_PROVIDERS:
+            raise ValidationError(
+                f"未知 model_provider: {provider!r}（可选 {'|'.join(_VALID_PROVIDERS)}）"
+            )
+        if base_url and not base_url.startswith(("http://", "https://")):
+            raise ValidationError("base_url 必须以 http(s):// 开头")
+        if provider in ("openai", "anthropic") and not model_name.strip():
+            raise ValidationError("接入真实模型时 model_name 不能为空")
+
+    def list_profiles(self) -> list[dict[str, Any]]:
+        """脱敏列表：key 只回 has_api_key。"""
+        return [self._sanitize_profile(p) for p in self._load_profiles()]
+
+    def save_profile(self, data: dict[str, Any]) -> dict[str, Any]:
+        """新建或更新自定义供应商。
+
+        - 带 id = 更新（部分更新：缺失字段沿用已有值）；不带 = 新建（全字段必填）
+        - api_key：非空 -> 覆盖；空串 / 缺省 -> 保持已有 key（不回传明文）
+        """
+        profiles = self._load_profiles()
+        pid = data.get("id")
+        if pid:
+            cur = next((p for p in profiles if p["id"] == pid), None)
+            if cur is None:
+                raise ValidationError(f"供应商不存在: {pid}")
+            for field in ("name", "provider", "base_url", "model_name"):
+                val = data.get(field)
+                if isinstance(val, str) and val.strip():
+                    cur[field] = val.strip()
+        else:
+            name = (data.get("name") or "").strip()
+            provider = (data.get("provider") or "").strip()
+            base_url = (data.get("base_url") or "").strip()
+            model_name = (data.get("model_name") or "").strip()
+            self._validate_profile(name, provider, base_url, model_name)
+            pid = "p_" + uuid.uuid4().hex[:10]
+            cur = {
+                "id": pid,
+                "name": name,
+                "provider": provider,
+                "base_url": base_url,
+                "model_name": model_name,
+            }
+            profiles.append(cur)
+        # 合并后完整性校验（更新后也不允许缺关键字段）
+        self._validate_profile(cur["name"], cur["provider"], cur["base_url"], cur["model_name"])
+        if data.get("api_key"):  # 仅非空覆盖；空串/缺省保持已有 key
+            cur["api_key"] = data["api_key"]
+        self._write_profiles(profiles)
+        return self._sanitize_profile(cur)
+
+    def delete_profile(self, profile_id: str) -> None:
+        profiles = self._load_profiles()
+        remaining = [p for p in profiles if p["id"] != profile_id]
+        if len(remaining) == len(profiles):
+            raise ValidationError(f"供应商不存在: {profile_id}")
+        self._write_profiles(remaining)

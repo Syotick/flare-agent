@@ -33,9 +33,19 @@ def _settings(tmp_path: Path) -> Settings:
 def _router_app(tmp_path: Path, tm: TaskManager | None = None):
     store = ModelConfigStore(_settings(tmp_path))
     from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+
+    from flare_common.errors import FlareError
 
     app = FastAPI()
     app.include_router(build_model_router(store, tm))
+
+    @app.exception_handler(FlareError)
+    async def _on_flare_error(_request, exc: FlareError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code, content={"detail": {"message": exc.message}}
+        )
+
     return app, store
 
 
@@ -185,3 +195,83 @@ def test_mounted_in_create_app(tmp_path: Path) -> None:
         assert client.get("/v1/settings/model").status_code == 200
         assert client.get("/v1/settings/model/presets").status_code == 200
         assert client.get("/v1/settings/model").json()["provider"] == "mock"
+
+
+def test_profiles_crud(tmp_path: Path) -> None:
+    with TestClient(_router_app(tmp_path)[0]) as client:
+        # 新建自定义供应商
+        resp = client.post(
+            "/v1/settings/model/profiles",
+            json={
+                "name": "某中转站",
+                "provider": "openai",
+                "base_url": "https://relay.example.com/v1",
+                "model_name": "gpt-5.4",
+                "api_key": "sk-relay-1",
+            },
+        )
+        assert resp.status_code == 200
+        prof = resp.json()
+        assert prof["name"] == "某中转站"
+        assert prof["provider"] == "openai"
+        assert prof["has_api_key"] is True
+        assert "api_key" not in prof  # 脱敏：不回明文
+        pid = prof["id"]
+
+        # 列表脱敏
+        lst = client.get("/v1/settings/model/profiles").json()
+        assert len(lst) == 1
+        assert lst[0]["id"] == pid
+        assert "api_key" not in lst[0]
+
+        # 更新：改名 + 换协议 + 覆盖 key
+        upd = client.put(
+            f"/v1/settings/model/profiles/{pid}",
+            json={
+                "name": "中转站新名",
+                "provider": "anthropic",
+                "base_url": "https://relay.example.com",
+                "model_name": "claude-sonnet-5",
+                "api_key": "sk-relay-2",
+            },
+        ).json()
+        assert upd["name"] == "中转站新名"
+        assert upd["provider"] == "anthropic"
+        assert upd["has_api_key"] is True
+
+        # key 缺省/空串 = 保持已有 key
+        upd2 = client.put(f"/v1/settings/model/profiles/{pid}", json={"name": "中转站新名2"}).json()
+        assert upd2["name"] == "中转站新名2"
+        assert upd2["has_api_key"] is True
+
+        # 删除
+        assert client.delete(f"/v1/settings/model/profiles/{pid}").status_code == 200
+        assert client.get("/v1/settings/model/profiles").json() == []
+        assert client.delete(f"/v1/settings/model/profiles/{pid}").status_code == 422
+
+
+def test_profiles_validation(tmp_path: Path) -> None:
+    with TestClient(_router_app(tmp_path)[0]) as client:
+        assert (
+            client.post(
+                "/v1/settings/model/profiles", json={"name": "", "provider": "openai"}
+            ).status_code
+            == 422
+        )
+        assert (
+            client.post(
+                "/v1/settings/model/profiles", json={"name": "x", "provider": "nope"}
+            ).status_code
+            == 422
+        )
+        # 真实模型缺 model_name
+        assert (
+            client.post(
+                "/v1/settings/model/profiles",
+                json={"name": "x", "provider": "openai", "base_url": "https://x/v1"},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.put("/v1/settings/model/profiles/no-such", json={"name": "x"}).status_code == 422
+        )

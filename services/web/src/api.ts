@@ -447,3 +447,45 @@ export async function testModelConnection(body?: ModelConfigBody): Promise<Model
   );
 }
 
+// 自定义供应商（可保存多个，切换激活仍走 saveModelSettings）
+export interface ModelProfile {
+  id: string;
+  name: string;
+  provider: string;
+  base_url: string;
+  model_name: string;
+  has_api_key: boolean;
+}
+
+export interface ModelProfileBody {
+  id?: string;
+  name?: string;
+  provider?: string;
+  base_url?: string;
+  model_name?: string;
+  api_key?: string;
+}
+
+export async function listModelProfiles(): Promise<ModelProfile[]> {
+  return json<ModelProfile[]>(await fetch("/v1/settings/model/profiles"));
+}
+
+export async function saveModelProfile(body: ModelProfileBody): Promise<ModelProfile> {
+  const { id, ...rest } = body;
+  const method = id ? "PUT" : "POST";
+  const url = id ? "/v1/settings/model/profiles/" + id : "/v1/settings/model/profiles";
+  return json<ModelProfile>(
+    await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rest),
+    })
+  );
+}
+
+export async function deleteModelProfile(id: string): Promise<{ ok: boolean }> {
+  return json<{ ok: boolean }>(
+    await fetch("/v1/settings/model/profiles/" + id, { method: "DELETE" })
+  );
+}
+
