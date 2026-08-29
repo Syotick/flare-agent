@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createTask, deleteTask, getTask, listTasks } from "./api";
+import ApiView from "./components/ApiView";
+import CapabilitiesView from "./components/CapabilitiesView";
 import ChatView from "./components/ChatView";
 import Composer from "./components/Composer";
 import KnowledgeBaseView from "./components/KnowledgeBaseView";
@@ -8,7 +10,7 @@ import OpsView from "./components/OpsView";
 import Sidebar from "./components/Sidebar";
 import type { Item } from "./types";
 
-export type ViewId = "chat" | "kb" | "memory" | "ops";
+export type ViewId = "chat" | "kb" | "memory" | "ops" | "capabilities" | "api";
 
 let nextId = 1;
 
@@ -285,6 +287,10 @@ export default function App() {
           <KnowledgeBaseView />
         ) : view === "memory" ? (
           <MemoryView />
+        ) : view === "capabilities" ? (
+          <CapabilitiesView />
+        ) : view === "api" ? (
+          <ApiView />
         ) : (
           <OpsView />
         )}

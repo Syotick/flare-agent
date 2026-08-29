@@ -37,6 +37,13 @@
 - 演示脚本 scripts/demo_subagent.py；教学文档 learning/14-multi-agent.md（已登记 docs/README）
 - 测试：新增 9 个（test_subagent，含 max_active>=2 证明真并发 + 超时护栏），全量 152 全绿，ruff/black 干净
 
+### Added（前端入口闭环 + 能力盘点 API，2026-08-28）
+- 死代码治理：MCP/Skills/多 Agent/OpenAI 兼容 API 此前只以 agent 工具存在（控制台无入口）——补 /v1/capabilities/* 只读路由（routes/capabilities.py）：tools（工具注册表 JSON-Schema）/ skills + skills/{name}（指令+资源全文）/ mcp（gateway.status() 快照）/ subagent（active_count + 子任务记录）；可选依赖未装配返回空态
+- 前端能力中心（CapabilitiesView.tsx 四页签：工具/技能/MCP/多 Agent）+ 开发者入口（ApiView.tsx：OpenAI 兼容 Playground + /v1/models + curl/CLI/SDK 接入示例）；侧栏死占位项"技能·轨迹·工具"修复为可点「能力」，新增「开发者」
+- app.py 挂载（skill_registry 提升到 create_app 作用域）；api.ts 统一层新增客户端；tsc(strict)+vite build 通过
+- 测试：test_capabilities 6 例（工具/技能详情+404/未装配空态/MCP 快照/subagent 记录/create_app 挂载冒烟），全量 178 全绿；真实服务器冒烟：13 工具清单 + skills + subagent + models + chat.completions 全部打通
+- learning/11 补 §10「前端入口闭环」（治理原则：一个能力 = 一个 REST 端点 + 一个前端视图）
+
 ### Added（CLI + OpenAI 兼容 REST API，F9.2/F9.3，2026-08-28）
 - OpenAI 兼容端点（routes/openai_compat.py）：POST /v1/chat/completions（标准 Chat Completions 契约，含 stream=true SSE 分块 + [DONE]）+ GET /v1/models；复用 TaskManager（任务登记/可观测/可查同一套存储），非流式内部轮询等待（同步语义的异步执行）
 - OpenAI 兼容错误：扁平 {"error":{message,type,param,code}}（自定义 OpenAICompatError → JSONResponse，不经 FastAPI detail 包装）；可选认证 FLARE_API_KEY（Bearer，空=开放）

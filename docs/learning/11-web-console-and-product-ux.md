@@ -111,3 +111,25 @@ cd services/web && npm run dev   # 可选：Vite 热更新开发模式，端口 
 3. max_steps / thread_id 是内部实现细节，产品主入口永不暴露；要暴露就藏进高级设置。
 4. 会话切换 = 清空 + SSE 回放 + 沿用线程；SSE 回放是轨迹唯一数据源。
 5. 构建 `npm run build` → dist（gitignore）→ 后端 8000 静态托管，非 3080。
+6. 能力入口闭环：每个已交付的后端能力必须有一个前端入口，否则就是"死代码"（见 §10）。
+
+## 10. 前端入口闭环：能力中心 + 开发者 API（2026-08-28，前端入口配置）
+
+- 背景（死代码治理）：MCP/Skills/多 Agent/OpenAI 兼容 API 交付后只以 **agent 工具**存在
+  （mcp_list / skill_list / spawn_subagent…），Web 控制台没有入口——能力在，产品层看不到。
+  侧栏甚至有个写死不可点的占位项"技能 · 轨迹 · 工具"。
+- 治理原则：**每个已交付能力 = 一个 REST 端点 + 一个前端视图**，没有第三个去处。
+- 后端（services/agent_runtime/routes/capabilities.py，只读）：
+  - GET /v1/capabilities/tools —— 工具注册表清单（name/description/JSON-Schema）
+  - GET /v1/capabilities/skills + /skills/{name} —— 技能清单 / 详情（指令 + 资源全文）
+  - GET /v1/capabilities/mcp —— MCP 服务器状态快照（gateway.status()：transport/enabled/connected/tools）
+  - GET /v1/capabilities/subagent —— 多 Agent 运行时（active_count + 子任务记录）
+  - 可选依赖（skills/mcp/subagent 未装配时返回空态），保证注入式测试可用
+- 前端（services/web/src/components/CapabilitiesView.tsx，四页签）：
+  - 工具：卡片 + 可展开 JSON Schema；技能：点击展开指令/依赖工具/资源；MCP：连接/启用徽标 + 注册工具；
+    多 Agent：活跃数横幅 + 子任务记录表（status/steps/output）
+- 开发者入口（ApiView.tsx，F9.3 配套）：OpenAI 兼容 **Playground**（调 /v1/chat/completions 看完整
+  chat.completion 对象）+ /v1/models 实时模型列表 + curl / CLI(flare) / OpenAI SDK 三段接入示例（一键复制）。
+- 坑：①能力路由必须挂在 create_app 的可选依赖上（skill_registry 只在默认装配路径创建，注入式测试不炸）；
+  ②前端 API 客户端放 api.ts 统一层，视图组件不直接 fetch；③改完先 `npx tsc --noEmit` 再 `npm run build`，
+  noUnusedLocals 严格模式会抓未用导入。

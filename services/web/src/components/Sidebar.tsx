@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Activity, Brain, Database, MessageSquare, Plus, Search, Sparkles, Trash2, X,
+  Activity, Brain, Database, MessageSquare, Plus, Puzzle, Search, Terminal, Trash2, X,
 } from "lucide-react";
 import { cn, groupByDate, autoTitle } from "../lib/utils";
 import type { TaskDetail } from "../api";
@@ -170,10 +170,31 @@ export default function Sidebar(props: {
             <span className={view === "ops" ? "font-medium" : ""}>运维</span>
             <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M6</span>
           </div>
-          <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground/60">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>技能 · 轨迹 · 工具</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M3+</span>
+          <div
+            className={
+              "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors " +
+              (view === "capabilities"
+                ? "bg-gradient-flare-soft text-foreground"
+                : "text-muted-foreground/60 hover:bg-muted hover:text-foreground")
+            }
+            onClick={() => onNavigate("capabilities")}
+          >
+            <Puzzle className={"h-3.5 w-3.5 " + (view === "capabilities" ? "text-primary" : "")} />
+            <span className={view === "capabilities" ? "font-medium" : ""}>能力</span>
+            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">工具·技能·MCP</span>
+          </div>
+          <div
+            className={
+              "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors " +
+              (view === "api"
+                ? "bg-gradient-flare-soft text-foreground"
+                : "text-muted-foreground/60 hover:bg-muted hover:text-foreground")
+            }
+            onClick={() => onNavigate("api")}
+          >
+            <Terminal className={"h-3.5 w-3.5 " + (view === "api" ? "text-primary" : "")} />
+            <span className={view === "api" ? "font-medium" : ""}>开发者</span>
+            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">F9.3</span>
           </div>
         </div>
       </div>

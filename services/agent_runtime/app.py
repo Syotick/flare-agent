@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from agent_runtime.routes.capabilities import build_capabilities_router
 from agent_runtime.routes.kb import build_kb_router
 from agent_runtime.routes.memory import build_memory_router
 from agent_runtime.routes.openai_compat import build_openai_router
@@ -123,6 +124,7 @@ def create_app(
     kb = knowledge_base
     mem = memory
     mcp_gateway: McpGateway | None = None
+    skill_registry: SkillRegistry | None = None
     if task_manager is None:
         if kb is None:
             kb = KnowledgeBase()  # 开发默认：内存 SQLite + HashEmbedder
@@ -203,6 +205,16 @@ def create_app(
 
     # F9.3: OpenAI 兼容 API（任何 OpenAI SDK/LiteLLM/curl 直接调用；FLARE_API_KEY 可选认证）
     app.include_router(build_openai_router(task_manager, api_key=settings.api_key))
+
+    # 前端入口闭环：能力盘点（工具/技能/MCP/多 Agent 只读浏览，把已交付能力接进控制台）
+    app.include_router(
+        build_capabilities_router(
+            task_manager.registry,
+            skills=skill_registry,
+            mcp_gateway=mcp_gateway,
+            subagent_runtime=subagent_runtime,
+        )
+    )
 
     # M6: 运维 API（SLO 状态 / 错误预算）
     app.include_router(build_ops_router(settings))

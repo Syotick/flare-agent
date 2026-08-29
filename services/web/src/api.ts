@@ -254,3 +254,98 @@ export async function getMetricsText(): Promise<string> {
   return resp.text();
 }
 
+
+// ---------- 能力盘点（前端入口闭环：MCP/Skills/多 Agent/工具注册表） ----------
+
+export interface ToolInfo {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  required_tools: string[];
+  resource_count: number;
+}
+
+export interface SkillDetail {
+  name: string;
+  description: string;
+  instructions: string;
+  required_tools: string[];
+  resources: Record<string, string>;
+}
+
+export interface McpServerStatus {
+  name: string;
+  transport: string;
+  enabled: boolean;
+  connected: boolean;
+  tools_registered: string[];
+}
+
+export interface SubagentRecord {
+  subagent_id: string;
+  prompt: string;
+  status: string;
+  output: string;
+  error: string | null;
+  step_count: number;
+  created_at: number;
+}
+
+export interface SubagentStatus {
+  active_count: number;
+  records: SubagentRecord[];
+}
+
+export async function listTools(): Promise<ToolInfo[]> {
+  return json<ToolInfo[]>(await fetch("/v1/capabilities/tools"));
+}
+
+export async function listSkills(): Promise<SkillInfo[]> {
+  return json<SkillInfo[]>(await fetch("/v1/capabilities/skills"));
+}
+
+export async function getSkill(name: string): Promise<SkillDetail> {
+  return json<SkillDetail>(await fetch("/v1/capabilities/skills/" + encodeURIComponent(name)));
+}
+
+export async function listMcpServers(): Promise<McpServerStatus[]> {
+  return json<McpServerStatus[]>(await fetch("/v1/capabilities/mcp"));
+}
+
+export async function getSubagentStatus(): Promise<SubagentStatus> {
+  return json<SubagentStatus>(await fetch("/v1/capabilities/subagent"));
+}
+
+
+// ---------- F9.3 OpenAI 兼容 API（开发者入口 playground） ----------
+
+export interface OpenAiModel {
+  id: string;
+  object: string;
+  owned_by: string;
+}
+
+export async function listOpenAiModels(): Promise<OpenAiModel[]> {
+  const resp = await json<{ data: OpenAiModel[] }>(await fetch("/v1/models"));
+  return resp.data;
+}
+
+export async function chatCompletions(prompt: string): Promise<Record<string, unknown>> {
+  return json<Record<string, unknown>>(
+    await fetch("/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "flare-agent",
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+      }),
+    })
+  );
+}
+
