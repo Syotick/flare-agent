@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Check, ShieldAlert, ShieldCheck, X } from "lucide-react";
+import { decideApproval, type ApprovalInfo } from "../api";
 import { cn } from "../lib/utils";
 import type { Item } from "../types";
 import FlareLogo from "./FlareLogo";
@@ -54,6 +56,74 @@ function StatusLine({ text, tone }: { text: string; tone: "info" | "warn" | "err
   );
 }
 
+const APPROVAL_STYLE: Record<string, { label: string; cls: string }> = {
+  pending: { label: "待审批", cls: "bg-warning/15 text-warning border border-warning/30" },
+  approved: { label: "已批准", cls: "bg-success/15 text-success border border-success/30" },
+  rejected: { label: "已拒绝", cls: "bg-destructive/15 text-destructive border border-destructive/30" },
+  timed_out: { label: "超时拒绝", cls: "bg-muted text-muted-foreground border border-border" },
+};
+
+function ApprovalCard({ approval }: { approval: ApprovalInfo }) {
+  const [busy, setBusy] = useState(false);
+  const st = APPROVAL_STYLE[approval.status] ?? APPROVAL_STYLE.pending;
+  const decide = async (approved: boolean) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await decideApproval(approval.approval_id, approved);
+      // 状态由服务端后续 SSE approval_decision 事件回灌更新（SSE 回放是唯一数据源）
+    } catch {
+      // ignore：卡片保留待审批态，可重试
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
+      <div className="flex items-center gap-2">
+        <ShieldAlert className="h-4 w-4 text-warning" />
+        <span className="text-[13px] font-semibold">需要审批</span>
+        <span className={cn("ml-auto rounded-full px-2 py-0.5 text-[10px]", st.cls)}>{st.label}</span>
+      </div>
+      <div className="mt-2 flex items-center gap-2 font-mono text-[13px]">
+        <span className="text-foreground">{approval.tool_name}</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{approval.permission}</span>
+      </div>
+      {approval.description && <p className="mt-1 text-[11px] text-muted-foreground">{approval.description}</p>}
+      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-2 font-mono text-[11px] leading-relaxed text-foreground">
+        {JSON.stringify(approval.args, null, 2)}
+      </pre>
+      {approval.status === "pending" ? (
+        <div className="mt-2.5 flex gap-2">
+          <button
+            className="flex items-center gap-1 rounded-lg bg-success px-3 py-1.5 text-[12px] font-medium text-success-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            disabled={busy}
+            onClick={() => decide(true)}
+          >
+            <Check className="h-3.5 w-3.5" />
+            批准执行
+          </button>
+          <button
+            className="flex items-center gap-1 rounded-lg bg-destructive px-3 py-1.5 text-[12px] font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            disabled={busy}
+            onClick={() => decide(false)}
+          >
+            <X className="h-3.5 w-3.5" />
+            拒绝
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+          {approval.status === "approved" ? <ShieldCheck className="h-3.5 w-3.5 text-success" /> : <X className="h-3.5 w-3.5" />}
+          {approval.decided_by && <span>{approval.decided_by} · </span>}
+          {approval.reason || approval.status}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function renderItem(it: Item) {
   switch (it.kind) {
     case "user":
@@ -66,6 +136,8 @@ function renderItem(it: Item) {
       );
     case "status":
       return <StatusLine key={it.id} text={it.text} tone={it.tone} />;
+    case "approval":
+      return <ApprovalCard key={it.id} approval={it.approval} />;
   }
 }
 

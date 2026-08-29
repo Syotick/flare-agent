@@ -52,6 +52,15 @@
 - 教学文档 learning/15（已登记 docs/README）；测试新增 12（test_openai_compat 6 + test_flare_cli 5 + 复用），全量 172 全绿
 - 冒烟验证：真实 uvicorn + python -m flare_cli（models/chat 流式/tasks/--json）端到端打通
 
+### Added（人机协作审批 + 工具权限分级，F1.3/F2.4，2026-08-29）
+- 权限分级（F2.4）：Tool 增加 permission 字段（read/write/destructive 三档，默认 read），echo=read、sandbox_run=destructive；审批策略 ApprovalPolicy（默认 destructive 及以上需审批，可收紧级别/工具白名单/超时，FLARE_APPROVAL_* 配置）
+- 审批门（F1.3）：graph tool_executor 执行敏感工具前 LangGraph interrupt 挂起 → 登记审批请求 → 状态转 awaiting_approval → REST 决策（asyncio.Event 唤醒）→ Command(resume) 续跑；批准放行、拒绝回灌 APPROVAL_REJECTED 观察（agent 换路/收尾）、超时自动拒绝
+- 执行层改造（tasks.py）：_execute 中断恢复循环（astream 在 __interrupt__ 后结束 → 两段式：跑到底 + resume 续跑）；任务状态新增 awaiting_approval（非终态，SSE 保持推送）；SSE 新增 approval / approval_decision 事件（前端审批卡片数据源）
+- 审批 API（routes/approval.py）：GET /v1/approvals（pending_only 过滤）/ GET {id} / POST {id}/decide（重复决策 409、未知 404）；app.py 挂载 + Settings 审批配置
+- Web 闭环：api.ts 审批客户端（listApprovals/decideApproval）+ ChatView 审批卡片（工具/权限/参数/描述 + 批准/拒绝按钮，状态回灌）+ App.tsx SSE 处理 + Sidebar awaiting_approval 状态色；mock 加「沙箱执行」演示触发器（本地可走通批准/拒绝闭环）
+- 教学文档 learning/16（已登记 docs/README）；测试新增 12（test_approval：权限打标/策略/管理器/图内 interrupt 审批门/任务端到端批准+拒绝/REST 契约/create_app 挂载），全量 190 全绿，ruff/black 干净，tsc(strict)+vite build 通过
+- 冒烟验证：真实 uvicorn 端到端——「沙箱执行」任务触发审批（awaiting_approval → 待审批列表 → 批准后真沙箱执行输出 / 拒绝后 APPROVAL_REJECTED 收尾）、SSE 重放含 approval 事件、重复决策 409 全部打通
+
 ### Fixed（Round 6 审查，2026-08-28）
 - M1 图内工具 schema 冻结：graph.actor 每轮用当前 registry 重建 system 工具清单（原位替换）——mcp_connect 中途注册的新工具同任务内对模型可见可调；补 ReAct 图端到端用例
 - M2 SSE 跨 chunk 拆分：新增 _split_sse_events 增量切分（只消费空行结尾的完整事件，残余保留 buffer）；testing.py 支持 sse_chunk 分块写出 + sse_response_delay

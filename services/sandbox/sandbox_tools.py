@@ -7,7 +7,7 @@ Agent 观察后重试/换路（与 registry 的失败观察契约一致）。
 from __future__ import annotations
 
 from sandbox.runner import SandboxRunner, SandboxUnavailableError
-from tools_gateway.registry import Tool, ToolResult
+from tools_gateway.registry import PERMISSION_DESTRUCTIVE, Tool, ToolResult
 
 
 def build_sandbox_run_tool(sandbox: SandboxRunner) -> Tool:
@@ -57,4 +57,5 @@ def build_sandbox_run_tool(sandbox: SandboxRunner) -> Tool:
             "required": ["code"],
         },
         func=_run,
+        permission=PERMISSION_DESTRUCTIVE,  # F2.4：执行任意代码=破坏性，默认需人工审批
     )

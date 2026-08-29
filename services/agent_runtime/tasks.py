@@ -16,6 +16,9 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from langgraph.types import Command
+
+from agent_runtime.approval import ApprovalManager
 from agent_runtime.checkpoint import get_checkpointer
 from agent_runtime.graph import build_react_agent
 from agent_runtime.task_store import InMemoryTaskStore, TaskStore
@@ -42,7 +45,9 @@ class TaskRecord:
     thread_id: str
     task_input: str
     max_steps: int
-    status: str = "pending"  # pending | running | completed | budget_exceeded | failed
+    status: str = (
+        "pending"  # pending | running | awaiting_approval | completed | budget_exceeded | failed
+    )
     created_at: float = field(default_factory=time.time)
     events: list[dict] = field(default_factory=list)
     result: dict[str, Any] | None = None
@@ -79,12 +84,14 @@ class TaskManager:
         checkpointer_factory=None,
         memory=None,
         store=None,
+        approval: ApprovalManager | None = None,
     ) -> None:
         self._registry = registry or create_default_registry()
         self._llm = llm or MockModelProvider()
         self._checkpointer_factory = checkpointer_factory or get_checkpointer
         self._memory = memory  # M3b 分层记忆（None 则不做上下文注入）
         self._store: TaskStore = store or InMemoryTaskStore()  # M5：持久化存储
+        self._approval = approval  # F1.3 审批管理器（None=不启用审批门）
         self._tasks: dict[str, TaskRecord] = {}  # 进程内缓存（同步读 + 持久化写穿）
 
     @property
@@ -96,6 +103,11 @@ class TaskManager:
     def llm(self):
         """F1.4：供多 Agent 子任务运行时共享同一模型入口。"""
         return self._llm
+
+    @property
+    def approval(self) -> ApprovalManager | None:
+        """F1.3：审批管理器（供审批路由/测试读取；None=未启用审批门）。"""
+        return self._approval
 
     async def create(
         self,
@@ -165,14 +177,68 @@ class TaskManager:
                 max_steps=task.max_steps,
                 checkpointer=checkpointer,
                 memory_context=memory_context,
+                approval=self._approval,  # F1.3：None=不启用审批门
             )
-            async for update in agent.astream(
-                {"task_input": task.task_input},
-                {"configurable": {"thread_id": task.thread_id}},
-                stream_mode="updates",
-            ):
-                task.events.append({"type": "step", "node": list(update.keys()), "data": update})
-                await self._save(task)
+            # F1.3 中断恢复循环：工具需审批时图发 interrupt 挂起 → 登记审批请求 +
+            # 状态转 awaiting_approval → 等人工决策（REST）→ Command(resume=...) 续跑。
+            pending_input: Any = {"task_input": task.task_input}
+            while True:
+                interrupted = False
+                async for update in agent.astream(
+                    pending_input,
+                    {"configurable": {"thread_id": task.thread_id}},
+                    stream_mode="updates",
+                ):
+                    if "__interrupt__" in update:
+                        for intr in update["__interrupt__"]:
+                            payload = intr.value
+                            if (
+                                self._approval is not None
+                                and isinstance(payload, dict)
+                                and payload.get("type") == "approval"
+                            ):
+                                req = self._approval.register(
+                                    task.task_id,
+                                    payload["tool"],
+                                    payload.get("args") or {},
+                                    permission=payload.get("permission", "destructive"),
+                                    description=payload.get("description", ""),
+                                )
+                                task.events.append(
+                                    {
+                                        "type": "approval",
+                                        "node": ["tool_executor"],
+                                        "data": {"approval": req.to_dict()},
+                                    }
+                                )
+                                task.status = "awaiting_approval"
+                                await self._save(task)
+                                decision = await self._approval.wait(req.approval_id)
+                                task.events.append(
+                                    {
+                                        "type": "approval_decision",
+                                        "node": [],
+                                        "data": {"approval": req.to_dict()},
+                                    }
+                                )
+                                task.status = "running"
+                                await self._save(task)
+                                pending_input = Command(
+                                    resume={
+                                        "approved": decision["approved"],
+                                        "reason": decision["reason"],
+                                    }
+                                )
+                            else:
+                                pending_input = Command(resume=None)
+                        interrupted = True
+                        break
+                    task.events.append(
+                        {"type": "step", "node": list(update.keys()), "data": update}
+                    )
+                    await self._save(task)
+                if not interrupted:
+                    break
             final = await agent.aget_state({"configurable": {"thread_id": task.thread_id}})
             values = final.values
             task.result = {

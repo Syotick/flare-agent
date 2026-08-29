@@ -87,6 +87,23 @@ export default function App() {
       window.clearTimeout(stall);
       const data = parseSSE<{ type: string; node: string[]; data: Record<string, any> }>((ev as MessageEvent).data);
       if (!data) return;
+      // F1.3 审批：新请求 -> 插入审批卡片；决策回灌 -> 更新卡片状态
+      if (data.type === "approval" && data.data?.approval) {
+        const appr = data.data.approval;
+        setItems((prev) => [...prev, { id: nextId++, kind: "approval", approval: appr }]);
+        return;
+      }
+      if (data.type === "approval_decision" && data.data?.approval) {
+        const appr = data.data.approval;
+        setItems((prev) =>
+          prev.map((it) =>
+            it.kind === "approval" && it.approval.approval_id === appr.approval_id
+              ? { ...it, approval: { ...it.approval, ...appr } }
+              : it
+          )
+        );
+        return;
+      }
       const nodes = Array.isArray(data.node) ? data.node : [];
       if (nodes.includes("actor") && data.data.actor) {
         const actor = data.data.actor;

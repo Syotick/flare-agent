@@ -28,12 +28,24 @@ class ToolFunc(Protocol):
     async def __call__(self, **kwargs: Any) -> ToolResult: ...
 
 
+# F2.4 工具权限分级：read（只读，安全）< write（可写，低风险）< destructive（破坏性，强制审批）
+PERMISSION_READ = "read"
+PERMISSION_WRITE = "write"
+PERMISSION_DESTRUCTIVE = "destructive"
+PERMISSION_ORDER: dict[str, int] = {
+    PERMISSION_READ: 0,
+    PERMISSION_WRITE: 1,
+    PERMISSION_DESTRUCTIVE: 2,
+}
+
+
 @dataclass(frozen=True)
 class Tool:
     name: str
     description: str
     parameters: dict[str, Any]  # JSON Schema（运行时校验 + 供 LLM 生成参数）
     func: ToolFunc
+    permission: str = PERMISSION_READ  # F2.4：read | write | destructive（审批门数据来源）
 
 
 class ToolRegistry:

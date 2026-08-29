@@ -1,4 +1,4 @@
-import type { TaskResult } from "./api";
+import type { ApprovalInfo, TaskResult } from "./api";
 
 export interface ToolResult {
   ok: boolean;
@@ -23,7 +23,8 @@ export type Item =
       status: "running" | "done";
       result?: ToolResult;
     }
-  | { id: number; kind: "status"; text: string; tone: "info" | "warn" | "error" };
+  | { id: number; kind: "status"; text: string; tone: "info" | "warn" | "error" }
+  | { id: number; kind: "approval"; approval: ApprovalInfo };
 
 export interface Conversation {
   taskId?: string;

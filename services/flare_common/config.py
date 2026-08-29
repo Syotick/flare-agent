@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     # F9.3：OpenAI 兼容 API 认证（FLARE_API_KEY；空=不校验，生产务必配置）
     api_key: str = ""
 
+    # F1.3/F2.4：审批策略（等于或高于该级别的工具需人工审批；默认 destructive 起）
+    # 例如 FLARE_APPROVAL_REQUIRE_LEVEL=write 则所有写/破坏性工具都要审批
+    approval_require_level: str = "destructive"
+    approval_timeout: float = 300.0  # 审批等待超时（秒），超时自动按拒绝处理
+
 
 @lru_cache
 def get_settings() -> Settings:

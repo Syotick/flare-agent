@@ -14,6 +14,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from agent_runtime.approval import ApprovalManager, ApprovalPolicy
+from agent_runtime.routes.approval import build_approval_router
 from agent_runtime.routes.capabilities import build_capabilities_router
 from agent_runtime.routes.kb import build_kb_router
 from agent_runtime.routes.memory import build_memory_router
@@ -125,6 +127,11 @@ def create_app(
     mem = memory
     mcp_gateway: McpGateway | None = None
     skill_registry: SkillRegistry | None = None
+    # F1.3/F2.4：审批管理器（破坏性工具默认需人工审批；FLARE_APPROVAL_* 可调）
+    approval_manager = ApprovalManager(
+        ApprovalPolicy(require_level=settings.approval_require_level),
+        timeout=settings.approval_timeout,
+    )
     if task_manager is None:
         if kb is None:
             kb = KnowledgeBase()  # 开发默认：内存 SQLite + HashEmbedder
@@ -146,6 +153,7 @@ def create_app(
             registry=registry,
             memory=mem,
             store=_build_task_store(settings),
+            approval=approval_manager,  # F1.3：任务图启用审批门
         )
 
     # F1.4：多 Agent 子任务运行时（共享父的 llm/registry，工具注册进同一注册表）
@@ -215,6 +223,9 @@ def create_app(
             subagent_runtime=subagent_runtime,
         )
     )
+
+    # F1.3: 审批 API（列待审批 / 决策批准|拒绝——唤醒挂起的任务执行）
+    app.include_router(build_approval_router(approval_manager))
 
     # M6: 运维 API（SLO 状态 / 错误预算）
     app.include_router(build_ops_router(settings))

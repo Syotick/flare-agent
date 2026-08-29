@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sandbox.sandbox_tools import build_sandbox_run_tool
-from tools_gateway.registry import Tool, ToolRegistry, ToolResult
+from tools_gateway.registry import PERMISSION_READ, Tool, ToolRegistry, ToolResult
 
 
 async def _echo(**kwargs: str) -> ToolResult:
@@ -27,6 +27,7 @@ def create_default_registry(sandbox=None) -> ToolRegistry:
                 "required": ["text"],
             },
             func=_echo,
+            permission=PERMISSION_READ,  # F2.4：只读，无副作用
         )
     )
     if sandbox is not None:

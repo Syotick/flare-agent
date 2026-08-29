@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 
 from model_gateway.providers import (
@@ -29,6 +30,14 @@ class MockModelProvider:
         if last is not None and last.role == "tool":
             return ToolCallDecision(action="final", answer=f"完成: {last.content}")
         user_text = next((m.content for m in messages if m.role == "user"), "")
+        # F1.3 联调/演示触发器：消息含「沙箱执行」→ 调 sandbox_run（触发审批门，
+        # 让 mock 环境下也能走通「人工审批 → 放行/拒绝」闭环；真实模型无需此分支）
+        match = re.search(r"沙箱执行[:：]?\s*([\s\S]+)", user_text)
+        if match:
+            return ToolCallDecision(
+                action="call_tool",
+                tool=ToolCall(name="sandbox_run", args={"code": match.group(1).strip()}),
+            )
         return ToolCallDecision(
             action="call_tool", tool=ToolCall(name="echo", args={"text": user_text})
         )

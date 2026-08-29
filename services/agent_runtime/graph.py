@@ -12,8 +12,10 @@ import logging
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import interrupt
 from pydantic import ValidationError as PydanticValidationError
 
+from agent_runtime.approval import ApprovalManager
 from flare_common.errors import NotFoundError, ValidationError
 from model_gateway.providers import LLMMessage, ModelProvider, ToolCallDecision
 from tools_gateway.registry import ToolRegistry, ToolResult
@@ -95,13 +97,17 @@ def build_react_agent(
     max_steps: int = 5,
     checkpointer: Any = None,
     memory_context: str | None = None,
+    approval: ApprovalManager | None = None,
 ):
-    """构建 ReAct 核心图：actor ↔ tool_executor（带预算熔断）。
+    """构建 ReAct 核心图：actor ↔ tool_executor（带预算熔断 + 审批门）。
 
     - llm: ModelProvider 接口（多模型可路由的入口）
     - registry: ToolRegistry（工具执行）
     - checkpointer: LangGraph 持久化（SQLite/PG/内存）
     - memory_context: M3b 分层记忆的上下文块，注入首个 user 消息（F4.3 上下文工程）
+    - approval: F1.3 审批管理器（None=不启用审批门）。启用后，工具执行前若需审批
+      （F2.4 权限分级），tool_executor 发 LangGraph interrupt 挂起任务，等人工决策：
+      resume={"approved": True} 放行执行；False 拒绝并把拒绝观察回灌给模型。
     """
 
     async def actor(state: AgentState) -> dict[str, Any]:
@@ -179,8 +185,38 @@ def build_react_agent(
                 "pending_tool": None,
                 "action": "final",
             }
+        name = tool["name"]
+        args = tool.get("args") or {}
+        # F1.3/F2.4 审批门：破坏性/策略要求的工具执行前 interrupt 挂起，等人工决策。
+        # resume={"approved": True} 放行执行；False 拒绝，拒绝观察回灌给模型（agent 换路/收尾）。
+        if approval is not None:
+            try:
+                tool_obj = registry.get(name)
+                needs_approval = approval.requires_approval(tool_obj)
+            except NotFoundError:
+                needs_approval = False
+            if needs_approval:
+                resume = interrupt(
+                    {
+                        "type": "approval",
+                        "tool": tool_obj.name,
+                        "description": tool_obj.description,
+                        "args": args,
+                        "permission": tool_obj.permission,
+                    }
+                )
+                if not resume.get("approved"):
+                    reason = str(resume.get("reason", "")).strip()
+                    msg = f"操作被拒绝：{reason}" if reason else "操作被用户拒绝"
+                    rejected = ToolResult(ok=False, error_code="APPROVAL_REJECTED", content=msg)
+                    return {
+                        "step_count": step + 1,
+                        "pending_tool": None,
+                        "last_tool_result": rejected,
+                        "messages": [*state.get("messages", []), _tool_message(name, rejected)],
+                    }
         try:
-            result = await registry.execute(tool["name"], tool.get("args"))
+            result = await registry.execute(name, args)
         except (NotFoundError, ValidationError) as exc:
             # F1: 模型选错工具/参数不对是常态——结构化失败观察回灌，让模型重试/换路
             error_code = "UNKNOWN_TOOL" if isinstance(exc, NotFoundError) else "INVALID_ARGS"
@@ -189,7 +225,7 @@ def build_react_agent(
             "step_count": step + 1,
             "pending_tool": None,
             "last_tool_result": result,
-            "messages": [*state.get("messages", []), _tool_message(tool["name"], result)],
+            "messages": [*state.get("messages", []), _tool_message(name, result)],
         }
 
     def route_after_actor(state: AgentState) -> str:

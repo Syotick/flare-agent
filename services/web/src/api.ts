@@ -349,3 +349,39 @@ export async function chatCompletions(prompt: string): Promise<Record<string, un
   );
 }
 
+
+// ---------- F1.3 人机协作审批 ----------
+
+export interface ApprovalInfo {
+  approval_id: string;
+  task_id: string;
+  tool_name: string;
+  args: Record<string, unknown>;
+  permission: string;
+  description: string;
+  status: string; // pending | approved | rejected | timed_out
+  requested_at: number;
+  decided_at: number | null;
+  decided_by: string;
+  reason: string;
+}
+
+export async function listApprovals(pendingOnly = false): Promise<ApprovalInfo[]> {
+  const params = pendingOnly ? "?pending_only=true" : "";
+  return json<ApprovalInfo[]>(await fetch("/v1/approvals" + params));
+}
+
+export async function decideApproval(
+  approvalId: string,
+  approved: boolean,
+  reason = ""
+): Promise<ApprovalInfo> {
+  return json<ApprovalInfo>(
+    await fetch("/v1/approvals/" + encodeURIComponent(approvalId) + "/decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approved, reason }),
+    })
+  );
+}
+

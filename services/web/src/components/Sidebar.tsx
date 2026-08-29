@@ -34,7 +34,7 @@ export default function Sidebar(props: {
   const statusColor = (s: string) =>
     s === "completed" ? "bg-success"
     : s === "failed" ? "bg-destructive"
-    : s === "budget_exceeded" ? "bg-warning"
+    : s === "budget_exceeded" || s === "awaiting_approval" ? "bg-warning"
     : "bg-muted-foreground";
 
   return (
