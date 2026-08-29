@@ -207,6 +207,7 @@ def test_profiles_crud(tmp_path: Path) -> None:
                 "provider": "openai",
                 "base_url": "https://relay.example.com/v1",
                 "model_name": "gpt-5.4",
+                "models": ["gpt-5.4", "gpt-5.2", "gpt-5.4"],  # 重复去重
                 "api_key": "sk-relay-1",
             },
         )
@@ -214,6 +215,7 @@ def test_profiles_crud(tmp_path: Path) -> None:
         prof = resp.json()
         assert prof["name"] == "某中转站"
         assert prof["provider"] == "openai"
+        assert prof["models"] == ["gpt-5.4", "gpt-5.2"]
         assert prof["has_api_key"] is True
         assert "api_key" not in prof  # 脱敏：不回明文
         pid = prof["id"]
@@ -238,6 +240,18 @@ def test_profiles_crud(tmp_path: Path) -> None:
         assert upd["name"] == "中转站新名"
         assert upd["provider"] == "anthropic"
         assert upd["has_api_key"] is True
+
+        # 模型目录可更新
+        upd_m = client.put(
+            f"/v1/settings/model/profiles/{pid}",
+            json={"models": ["claude-sonnet-5", "claude-opus-5"]},
+        ).json()
+        assert upd_m["models"] == ["claude-sonnet-5", "claude-opus-5"]
+        # 模型目录传非列表 = pydantic 层拒绝（422）
+        assert (
+            client.put(f"/v1/settings/model/profiles/{pid}", json={"models": "oops"}).status_code
+            == 422
+        )
 
         # key 缺省/空串 = 保持已有 key
         upd2 = client.put(f"/v1/settings/model/profiles/{pid}", json={"name": "中转站新名2"}).json()
