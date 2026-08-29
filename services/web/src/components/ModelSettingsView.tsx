@@ -131,13 +131,10 @@ export default function ModelSettingsView() {
         <div className="flex items-center gap-2">
           <Cpu className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold">模型设置</h1>
-          <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-            模型网关 · M4
-          </span>
+
         </div>
         <p className="text-[12px] text-muted-foreground">
-          接入真实大模型（OpenAI / DeepSeek / 通义百炼 / 硅基流动 / 本地 vLLM 等兼容端点）。
-          API Key 只在服务端保存（data/model_config.json），本页不回显明文。
+          选择供应商并填入 API Key，即可接入真实大模型。Key 只在服务端保存，本页不显示明文。
         </p>
 
         {error && (
@@ -148,7 +145,7 @@ export default function ModelSettingsView() {
 
         {/* 当前生效状态 */}
         <div className="rounded-xl border border-border bg-card/70 p-4">
-          <div className="text-[12px] font-medium text-muted-foreground">当前生效配置</div>
+          <div className="text-[12px] font-medium text-muted-foreground">当前使用</div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px]">
             <span className="font-mono text-foreground">{cfg?.provider ?? "-"}</span>
             <span className="max-w-[60%] truncate font-mono text-muted-foreground">
@@ -207,7 +204,7 @@ export default function ModelSettingsView() {
                 autoComplete="off"
               />
             </div>,
-            "Key 只写入服务端文件；生产环境用 FLARE_MODEL_API_KEY / K8s Secret 覆盖。"
+            "Key 仅保存在服务端。生产环境建议改用环境变量注入。"
           )}
 
           <div className="flex flex-wrap items-center gap-2">
@@ -283,13 +280,8 @@ export default function ModelSettingsView() {
 
         {/* 说明 */}
         <div className="rounded-xl border border-dashed border-border p-4 text-[11px] leading-relaxed text-muted-foreground">
-          <p className="font-medium text-foreground">生效优先级与安全说明</p>
-          <p className="mt-1">
-            真实环境变量（FLARE_MODEL_PROVIDER / FLARE_MODEL_API_KEY / FLARE_MODEL_BASE_URL /
-            FLARE_MODEL_NAME）&gt; 本页保存的本地配置 &gt; 默认值。生产部署请用环境变量或 K8s
-            Secret 注入 Key，本页配置仅面向本地开发 / 自托管。
-          </p>
-          <p className="mt-1">保存后模型网关热替换，对之后新建的任务生效；正在运行的任务不受影响。</p>
+          <p className="font-medium text-foreground">配置说明</p>
+          <p className="mt-1">保存的配置优先于默认值；生产环境请用环境变量注入 Key。保存后新任务立即生效。</p>
         </div>
       </div>
     </div>

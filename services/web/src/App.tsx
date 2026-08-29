@@ -34,6 +34,12 @@ function streamUrl(taskId: string): string {
   return "/v1/tasks/" + taskId + "/stream";
 }
 
+const statusText = (s: string) =>
+  s === "completed" ? "已完成"
+  : s === "failed" ? "失败"
+  : s === "budget_exceeded" ? "预算超限"
+  : "已结束";
+
 // 内部参数（对用户不可见，产品层不给用户配置工程细节）
 const MAX_STEPS = 8; // Agent 单次任务最大思考→行动轮次
 
@@ -167,7 +173,7 @@ export default function App() {
           {
             id: nextId++,
             kind: "status",
-            text: "task " + data.status + (data.result ? " · " + data.result.step_count + " steps" : ""),
+            text: statusText(data.status),
             tone: data.status === "completed" ? "info" : data.status === "failed" ? "error" : "warn",
           },
         ]);
@@ -182,7 +188,7 @@ export default function App() {
       es.close();
       setRunning(false);
       if (!closed && !finished) {
-        setItems((prev) => [...prev, { id: nextId++, kind: "status", text: "connection lost", tone: "error" }]);
+        setItems((prev) => [...prev, { id: nextId++, kind: "status", text: "连接中断，已停止", tone: "error" }]);
       }
     };
 
@@ -218,7 +224,7 @@ export default function App() {
       setActiveTaskId(created.task_id);
       setItems((prev) => [
         ...prev,
-        { id: nextId++, kind: "status", text: "submitted · " + created.task_id, tone: "info" },
+        { id: nextId++, kind: "status", text: "已提交，执行中…", tone: "info" },
       ]);
     } catch (err) {
       setRunning(false);
@@ -232,7 +238,7 @@ export default function App() {
   const cancel = () => {
     setActiveTaskId(null);
     setRunning(false);
-    setItems((prev) => [...prev, { id: nextId++, kind: "status", text: "cancelled", tone: "warn" }]);
+    setItems((prev) => [...prev, { id: nextId++, kind: "status", text: "已停止", tone: "warn" }]);
   };
 
   const pickTask = (taskId: string) => {

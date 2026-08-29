@@ -143,7 +143,7 @@ export default function Sidebar(props: {
           >
             <Database className={"h-3.5 w-3.5 " + (view === "kb" ? "text-primary" : "")} />
             <span className={view === "kb" ? "font-medium" : ""}>知识库</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M3a</span>
+            
           </div>
           <div
             className={
@@ -156,7 +156,7 @@ export default function Sidebar(props: {
           >
             <Brain className={"h-3.5 w-3.5 " + (view === "memory" ? "text-primary" : "")} />
             <span className={view === "memory" ? "font-medium" : ""}>记忆</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M3b</span>
+            
           </div>
           <div
             className={
@@ -169,7 +169,7 @@ export default function Sidebar(props: {
           >
             <Activity className={"h-3.5 w-3.5 " + (view === "ops" ? "text-primary" : "")} />
             <span className={view === "ops" ? "font-medium" : ""}>运维</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">M6</span>
+            
           </div>
           <div
             className={
@@ -182,12 +182,10 @@ export default function Sidebar(props: {
           >
             <ShieldCheck className={"h-3.5 w-3.5 " + (view === "approvals" ? "text-primary" : "")} />
             <span className={view === "approvals" ? "font-medium" : ""}>审批</span>
-            {pendingApprovals > 0 ? (
+            {pendingApprovals > 0 && (
               <span className="ml-auto animate-pulse rounded-full bg-warning/20 px-1.5 py-0.5 text-[9px] text-warning">
                 {pendingApprovals} 待批
               </span>
-            ) : (
-              <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">F1.3</span>
             )}
           </div>
           <div
@@ -201,7 +199,7 @@ export default function Sidebar(props: {
           >
             <Puzzle className={"h-3.5 w-3.5 " + (view === "capabilities" ? "text-primary" : "")} />
             <span className={view === "capabilities" ? "font-medium" : ""}>能力</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">工具·技能·MCP</span>
+            
           </div>
           <div
             className={
@@ -214,7 +212,7 @@ export default function Sidebar(props: {
           >
             <Cpu className={"h-3.5 w-3.5 " + (view === "model" ? "text-primary" : "")} />
             <span className={view === "model" ? "font-medium" : ""}>模型</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">网关配置</span>
+            
           </div>
           <div
             className={
@@ -227,7 +225,7 @@ export default function Sidebar(props: {
           >
             <Terminal className={"h-3.5 w-3.5 " + (view === "api" ? "text-primary" : "")} />
             <span className={view === "api" ? "font-medium" : ""}>开发者</span>
-            <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[9px]">F9.3</span>
+            
           </div>
         </div>
       </div>
@@ -236,7 +234,7 @@ export default function Sidebar(props: {
       <div className="flex flex-none items-center gap-2 border-t border-border px-2 pt-2.5 text-xs text-muted-foreground">
         <span className={cn("h-1.5 w-1.5 flex-none rounded-full", running ? "bg-warning shadow-[0_0_8px_rgba(242,183,78,0.7)]" : "bg-success shadow-[0_0_8px_rgba(52,211,153,0.6)]")} />
         <span className="flex-1">{running ? "运行中" : "就绪"}</span>
-        <span className="font-mono text-[10px]">v0.1</span>
+
       </div>
 
       {/* 底部品牌光晕 */}

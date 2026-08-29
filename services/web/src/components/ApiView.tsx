@@ -8,7 +8,7 @@ const CURL_EXAMPLE = `curl http://127.0.0.1:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"flare-agent","messages":[{"role":"user","content":"帮我把周报拆成三点"}]}'`;
 
-const CLI_EXAMPLE = `# F9.2 CLI（pip install -e . 后直接可用）
+const CLI_EXAMPLE = `# CLI（安装后直接可用）
 flare chat "帮我把周报拆成三点"           # 流式输出
 flare --json chat "hello" --no-stream
 flare tasks

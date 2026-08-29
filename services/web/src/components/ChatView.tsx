@@ -50,11 +50,17 @@ function AssistantBubble({ text, done }: { text: string; done: boolean }) {
 
 function StatusLine({ text, tone }: { text: string; tone: "info" | "warn" | "error" }) {
   return (
-    <div className={cn("font-mono text-xs", tone === "error" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-muted-foreground")}>
+    <div className={cn("text-xs", tone === "error" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-muted-foreground")}>
       {text}
     </div>
   );
 }
+
+const PERMISSION_LABEL: Record<string, string> = {
+  read: "只读",
+  write: "写入",
+  destructive: "破坏性",
+};
 
 const APPROVAL_STYLE: Record<string, { label: string; cls: string }> = {
   pending: { label: "待审批", cls: "bg-warning/15 text-warning border border-warning/30" },
@@ -88,7 +94,7 @@ function ApprovalCard({ approval }: { approval: ApprovalInfo }) {
       </div>
       <div className="mt-2 flex items-center gap-2 font-mono text-[13px]">
         <span className="text-foreground">{approval.tool_name}</span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{approval.permission}</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{PERMISSION_LABEL[approval.permission] ?? approval.permission}</span>
       </div>
       {approval.description && <p className="mt-1 text-[11px] text-muted-foreground">{approval.description}</p>}
       <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-2 font-mono text-[11px] leading-relaxed text-foreground">

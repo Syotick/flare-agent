@@ -4,22 +4,22 @@ const SUGGESTIONS = [
   {
     icon: <Zap className="h-4 w-4" />,
     title: "打个招呼",
-    text: "帮我 echo 一句问候语，验证思考→调用→观察的链路",
+    text: "帮我打个招呼",
   },
   {
     icon: <GitBranch className="h-4 w-4" />,
-    title: "链式工具",
-    text: "连续调用两次 echo，看 Agent 多步循环怎么走",
+    title: "多步任务",
+    text: "连续做两件事，看它一步步完成",
   },
   {
     icon: <Shield className="h-4 w-4" />,
-    title: "预算封顶",
-    text: "把最大步骤设为 3，让它跑一个超长任务看 budget_exceeded",
+    title: "分步执行",
+    text: "让它把任务拆成几步完成",
   },
   {
     icon: <RefreshCw className="h-4 w-4" />,
-    title: "并发体验",
-    text: "连续发多个任务，感受后台执行 + SSE 实时回流",
+    title: "并行处理",
+    text: "一次发多个任务，看它并行处理",
   },
 ];
 
@@ -28,7 +28,7 @@ export default function WelcomePanel({ onPick }: { onPick: (text: string) => voi
     <div className="mx-auto flex w-full max-w-[640px] flex-col items-center gap-6 px-6 pb-8 pt-16">
       <div className="flex flex-col items-center gap-2 text-center">
         <h2 className="text-2xl font-bold tracking-tight">今天想让它帮你做什么？</h2>
-        <p className="text-[13px] text-muted-foreground">输入任务直接开始，或点下面的示例——它会调用工具、观察结果、给出结论</p>
+        <p className="text-[13px] text-muted-foreground">输入任务直接开始，或点下面的示例快速体验</p>
       </div>
       <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
         {SUGGESTIONS.map((s) => (
@@ -47,7 +47,7 @@ export default function WelcomePanel({ onPick }: { onPick: (text: string) => voi
           </button>
         ))}
       </div>
-      <p className="text-[11px] text-muted-foreground/80">提示：工具调用会以内联卡片展示，点开可看参数和输出</p>
+      <p className="text-[11px] text-muted-foreground/80">提示：执行过程会以内联卡片展示，点击可查看详情</p>
     </div>
   );
 }

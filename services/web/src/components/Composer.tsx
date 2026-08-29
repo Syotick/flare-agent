@@ -26,7 +26,7 @@ export default function Composer(props: {
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={running ? "正在执行…" : "给 Flare 发一个任务，Enter 发送，Shift+Enter 换行"}
+          placeholder={running ? "正在执行…" : "给 Flare 发个任务…"}
           disabled={running}
           autoComplete="off"
           onFocus={() => setFocused(true)}

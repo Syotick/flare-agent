@@ -3,6 +3,12 @@ import { Check, RefreshCw, ShieldAlert, ShieldCheck, X } from "lucide-react";
 import { decideApproval, listApprovals, type ApprovalInfo } from "../api";
 import { cn } from "../lib/utils";
 
+const PERMISSION_LABEL: Record<string, string> = {
+  read: "只读",
+  write: "写入",
+  destructive: "破坏性",
+};
+
 const APPROVAL_STYLE: Record<string, { label: string; cls: string }> = {
   pending: { label: "待审批", cls: "bg-warning/15 text-warning border border-warning/30" },
   approved: { label: "已批准", cls: "bg-success/15 text-success border border-success/30" },
@@ -43,7 +49,7 @@ function ApprovalRow({ approval, onDecided }: { approval: ApprovalInfo; onDecide
         )}
         <span className="font-mono text-[13px] text-foreground">{approval.tool_name}</span>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-          {approval.permission}
+          {PERMISSION_LABEL[approval.permission] ?? approval.permission}
         </span>
         <span className={cn("ml-auto rounded-full px-2 py-0.5 text-[10px]", st.cls)}>{st.label}</span>
       </div>
@@ -140,13 +146,12 @@ export default function ApprovalsView() {
           </button>
         </div>
         <p className="text-[12px] text-muted-foreground">
-          敏感操作（默认破坏性工具）在执行前挂起等待人工批准；获批一次后同会话内 TOFU
-          自动放行，避免审批疲劳。
+          敏感操作在执行前需要你确认；批准一次后，本会话内同类操作自动放行。
         </p>
         {error && <div className="text-[12px] text-destructive">{error}</div>}
         {approvals.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border p-10 text-center text-[13px] text-muted-foreground">
-            暂无审批记录。让 Agent 执行破坏性操作（如「沙箱执行」）时，这里会出现待审批请求。
+            暂无审批记录。Agent 需要执行敏感操作时会出现在这里。
           </div>
         ) : (
           approvals.map((a) => <ApprovalRow key={a.approval_id} approval={a} onDecided={refresh} />)

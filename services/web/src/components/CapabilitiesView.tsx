@@ -16,7 +16,7 @@ type Tab = "tools" | "skills" | "mcp" | "subagent";
 const TABS: { id: Tab; label: string; icon: typeof Boxes }[] = [
   { id: "tools", label: "工具", icon: Boxes },
   { id: "skills", label: "技能", icon: Puzzle },
-  { id: "mcp", label: "MCP", icon: Plug },
+  { id: "mcp", label: "连接", icon: Plug },
   { id: "subagent", label: "多 Agent", icon: Workflow },
 ];
 
@@ -111,7 +111,7 @@ export default function CapabilitiesView() {
           <div className="flex flex-col gap-3">
             {skills.length === 0 && (
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-4 text-xs text-muted-foreground">
-                暂无已安装技能（FLARE_SKILLS_DIR 目录下放置 SKILL.md 技能包后刷新）。
+                暂无已安装技能（可先将技能包放入技能目录后刷新）。
               </div>
             )}
             {skills.map((s) => (
@@ -165,7 +165,7 @@ export default function CapabilitiesView() {
           <div className="flex flex-col gap-3">
             {mcp.length === 0 && (
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-4 text-xs text-muted-foreground">
-                未配置 MCP 服务器（FLARE_MCP_SERVERS 为空；配置后 mcp_connect 按需连接并注册工具）。
+                尚未配置任何外部连接。
               </div>
             )}
             {mcp.map((s) => (
@@ -208,7 +208,7 @@ export default function CapabilitiesView() {
               <span>
                 当前活跃子 Agent：<span className="font-mono text-foreground">{sub ? sub.active_count : "-"}</span> / 64
               </span>
-              <span className="ml-auto">子任务 = 独立 ReAct Agent（F1.4，asyncio.gather 并行）</span>
+              <span className="ml-auto">子任务由独立 Agent 并行执行</span>
             </div>
             {sub && sub.records.length === 0 && (
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-4 text-xs text-muted-foreground">
@@ -228,7 +228,7 @@ export default function CapabilitiesView() {
                   <CardContent className="flex flex-col gap-2">
                     <p className="text-[12px] text-muted-foreground">{rec.prompt}</p>
                     <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                      <span>steps {rec.step_count}</span>
+                      <span>步骤 {rec.step_count}</span>
                       {rec.error && <span className="text-destructive">{rec.error}</span>}
                     </div>
                     {rec.output && (
@@ -249,7 +249,7 @@ export default function CapabilitiesView() {
       <div className="flex items-center gap-2">
         <Boxes className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold tracking-tight">能力中心</h1>
-        <span className="text-xs text-muted-foreground">工具注册表 · 技能 · MCP · 多 Agent（前端入口闭环）</span>
+        <span className="text-xs text-muted-foreground">工具 · 技能 · 外部连接 · 并行任务</span>
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={refresh} disabled={busy}>
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}

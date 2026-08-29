@@ -56,7 +56,7 @@ export default function OpsView() {
       <div className="flex items-center gap-2">
         <Activity className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold tracking-tight">运维中心</h1>
-        <span className="text-xs text-muted-foreground">SLO · 错误预算 · 告警分级（M6）</span>
+        <span className="text-xs text-muted-foreground">服务健康度监控</span>
         <div className="ml-auto flex items-center gap-2">
           {slo && <span className="text-[11px] text-muted-foreground">更新于 {fmtTime(slo.generated_at)}</span>}
           <Button variant="outline" size="sm" onClick={refresh} disabled={busy}>
@@ -82,7 +82,7 @@ export default function OpsView() {
           <div className="flex flex-col">
             <span className="text-sm font-semibold">整体状态：{overall.label}</span>
             <span className="text-[11px] opacity-80">
-              错误预算周期 {slo.period_days} 天 · 三个 SLO 实时分级
+              按 {slo.period_days} 天周期持续监控服务健康度
             </span>
           </div>
         </div>
@@ -140,7 +140,7 @@ export default function OpsView() {
                         />
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>bad {budget.bad} / {budget.total}</span>
+                        <span>异常 {budget.bad} / 总数 {budget.total}</span>
                         <span>剩余 {(budget.remaining_ratio * 100).toFixed(1)}%</span>
                       </div>
                     </>
@@ -164,14 +164,14 @@ export default function OpsView() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-sm">
             <Activity className="h-4 w-4 text-primary" />
-            Prometheus 指标（/metrics）
+            原始指标（/metrics）
           </CardTitle>
           <button
             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
             onClick={() => setShowMetrics((v) => !v)}
           >
             {showMetrics ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-            {showMetrics ? "收起" : "展开原始指标"}
+            {showMetrics ? "收起" : "展开"}
           </button>
         </CardHeader>
         {showMetrics && (

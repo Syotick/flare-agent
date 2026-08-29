@@ -49,7 +49,7 @@ export default function KnowledgeBaseView() {
     setOk("");
     try {
       const r = await ingestDocument(title.trim(), content.trim());
-      setOk("已入库「" + r.title + "」，" + r.chunk_count + " chunks / " + r.chars + " 字符");
+      setOk("已入库「" + r.title + "」，共 " + r.chunk_count + " 段");
       setTitle("");
       setContent("");
       refresh();
@@ -100,7 +100,7 @@ export default function KnowledgeBaseView() {
       <div className="flex items-center gap-2">
         <FileText className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold tracking-tight">知识库管理</h1>
-        <span className="text-xs text-muted-foreground">RAG · 入库 / 检索 / 评测</span>
+        <span className="text-xs text-muted-foreground">入库 / 检索 / 评测</span>
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={refresh} title="刷新">
             <RefreshCw className="h-3.5 w-3.5" />
@@ -136,7 +136,7 @@ export default function KnowledgeBaseView() {
                 onChange={(e) => setTitle(e.target.value)}
               />
               <Textarea
-                placeholder="正文（自动切块 + 向量化；不超过 100,000 字符）"
+                placeholder="正文（自动分块入库；不超过 10 万字符）"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
               />
@@ -167,8 +167,8 @@ export default function KnowledgeBaseView() {
                 >
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-[13px] text-foreground">{d.title}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                      {d.doc_id} · {relTime(d.created_at)}
+                    <span className="text-[10px] text-muted-foreground">
+                      {relTime(d.created_at)}
                     </span>
                   </div>
                   <button

@@ -107,7 +107,7 @@ export default function MemoryView() {
       <div className="flex items-center gap-2">
         <Brain className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold tracking-tight">记忆管理</h1>
-        <span className="text-xs text-muted-foreground">分层记忆 · 长期事实 / 向量记忆 / 上下文工程</span>
+        <span className="text-xs text-muted-foreground">长期事实 / 检索 / 上下文</span>
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={refresh} title="刷新">
             <RefreshCw className="h-3.5 w-3.5" />
@@ -138,12 +138,12 @@ export default function MemoryView() {
             </CardHeader>
             <CardContent className="flex flex-col gap-2.5">
               <Input
-                placeholder="key（如：user_name）"
+                placeholder="名称（如：user_name）"
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
               />
               <Textarea
-                placeholder="value（事实内容，如：用户叫小明）"
+                placeholder="内容（如：用户叫小明）"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
               />
