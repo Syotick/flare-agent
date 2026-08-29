@@ -12,16 +12,16 @@ import WelcomePanel from "./WelcomePanel";
 // 若 done=true 还停在 shown=0 会渲染出空白气泡，回复永远不显示）
 function StreamText({ text, done }: { text: string; done: boolean }) {
   const [shown, setShown] = useState(0);
-  useEffect(() => {
-    setShown(0);
-  }, [text]);
+  // L6：不随 text 增长重置——token 逐段追加时 shown 单调向前追，避免每次 token
+  // 到达都从 0 重打（闪烁/永远显示不全）；新气泡(新 key)天然从 0 开始。
   useEffect(() => {
     if (done) {
       setShown(text.length); // 完成时直接补全，避免停在空白
       return;
     }
     if (shown >= text.length) return;
-    const t = window.setTimeout(() => setShown((s) => Math.min(s + 2, text.length)), 12);
+    // 放慢到 30ms/2 字符（≈15ms/字符），让"逐字打出"肉眼可见（上游 token 快时尤其需要）
+    const t = window.setTimeout(() => setShown((s) => Math.min(s + 2, text.length)), 30);
     return () => window.clearTimeout(t);
   }, [shown, done, text]);
   return (

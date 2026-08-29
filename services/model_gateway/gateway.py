@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 
+import httpx
+
 from flare_common.config import Settings
 from flare_common.errors import ValidationError
 from model_gateway.anthropic_compat import AnthropicCompatibleProvider
@@ -64,10 +66,25 @@ class RetryProvider:
         *,
         model: str | None = None,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[str]:
-        # 流已消费后无法安全重放，此处不做重试（文档注明：流式重试见 M5 语义层）
-        async for chunk in self._provider.stream(messages, model=model, temperature=temperature):
-            yield chunk
+        # 只在"连接建立失败"（流尚未消费，重试安全）时重试：ConnectError /
+        # ConnectTimeout / 底层 OSError / 超时。流消费中途断开不可重放（可能重复
+        # 已推送 token），不重试，交由上层降级 chat 兜底。
+        last_error: Exception | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                async for chunk in self._provider.stream(
+                    messages, model=model, temperature=temperature, tools=tools
+                ):
+                    yield chunk
+                return
+            except (httpx.ConnectError, httpx.ConnectTimeout, OSError, TimeoutError) as exc:
+                last_error = exc
+                if attempt < self._max_retries:
+                    await asyncio.sleep(self._base_delay * (2**attempt))
+        assert last_error is not None
+        raise last_error
 
     async def close(self) -> None:
         if hasattr(self._provider, "close"):

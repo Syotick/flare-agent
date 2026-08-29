@@ -87,6 +87,8 @@ export default function App() {
       setItems([]);
       setActiveTaskId(tid);
       setRunning(true);
+      lastAssistantId.current = null;
+      lastToolId.current = null;
       getTask(tid)
         .then((d) => {
           setThreadId(d.thread_id);
@@ -109,8 +111,28 @@ export default function App() {
 
     es.addEventListener("step", (ev) => {
       window.clearTimeout(stall);
-      const data = parseSSE<{ type: string; node: string[]; data: Record<string, any> }>((ev as MessageEvent).data);
+      const data = parseSSE<{ type: string; node?: string[]; data?: Record<string, any>; content?: string }>((ev as MessageEvent).data);
       if (!data) return;
+      // L6：token 级流式——模型每吐一段，实时追加到当前助手气泡（打字机效果）
+      if (data.type === "token") {
+        const tok = data.content;
+        if (typeof tok !== "string") return;
+        const lid = lastAssistantId.current;
+        if (lid !== null) {
+          setItems((prev) =>
+            prev.map((it) =>
+              it.kind === "assistant" && it.id === lid
+                ? { ...it, msg: { ...it.msg, text: it.msg.text + tok } }
+                : it
+            )
+          );
+        } else {
+          const id = nextId++;
+          lastAssistantId.current = id;
+          setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: tok, done: false } }]);
+        }
+        return;
+      }
       // F1.3 审批：新请求 -> 插入审批卡片；决策回灌 -> 更新卡片状态
       if (data.type === "approval" && data.data?.approval) {
         const appr = data.data.approval;
@@ -129,7 +151,7 @@ export default function App() {
         return;
       }
       const nodes = Array.isArray(data.node) ? data.node : [];
-      if (nodes.includes("actor") && data.data.actor) {
+      if (nodes.includes("actor") && data.data?.actor) {
         const actor = data.data.actor;
         if (actor.action === "call_tool" && actor.pending_tool) {
           const id = nextId++;
@@ -140,12 +162,25 @@ export default function App() {
           ]);
         }
         if (actor.action === "final" && actor.output) {
-          const id = nextId++;
-          lastAssistantId.current = id;
-          setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: actor.output, done: false } }]);
+          const lid = lastAssistantId.current;
+          if (lid !== null) {
+            // token 已在流式累积 → 用最终 output 对齐文本（防缺段/截断）；
+            // done 由 result 延迟设置，保证打字机动画可见
+            setItems((prev) =>
+              prev.map((it) =>
+                it.kind === "assistant" && it.id === lid
+                  ? { ...it, msg: { text: actor.output, done: false } }
+                  : it
+              )
+            );
+          } else {
+            const id = nextId++;
+            lastAssistantId.current = id;
+            setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: actor.output, done: false } }]);
+          }
         }
       }
-      if (nodes.includes("tool_executor") && data.data.tool_executor) {
+      if (nodes.includes("tool_executor") && data.data?.tool_executor) {
         const te = data.data.tool_executor;
         const r = te.last_tool_result;
         const id = lastToolId.current;
@@ -167,9 +202,19 @@ export default function App() {
       const data = parseSSE<ResultPayload>((ev as MessageEvent).data);
       const aid = lastAssistantId.current;
       if (aid != null) {
-        setItems((prev) =>
-          prev.map((it) => (it.id === aid && it.kind === "assistant" ? { ...it, msg: { ...it.msg, done: true } } : it))
-        );
+        // L6：不立即 done——给打字机时间把剩余文本逐字打完（token 快时 result 紧跟会秒全显）
+        const outLen = (data?.result?.output ?? "").length;
+        const delay = Math.min(5000, 500 + outLen * 20); // ≈20ms/字符 + 缓冲，封顶 5s
+        window.setTimeout(() => {
+          setItems((prev) =>
+            prev.map((it) => (it.id === aid && it.kind === "assistant" ? { ...it, msg: { ...it.msg, done: true } } : it))
+          );
+        }, delay);
+      } else if (data?.result?.output) {
+        // 兜底：token/final 均未渲染时，用 result 完整输出显示回复
+        const id = nextId++;
+        lastAssistantId.current = id;
+        setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: data.result!.output, done: true } }]);
       }
       if (data) {
         setItems((prev) => [
@@ -219,6 +264,9 @@ export default function App() {
     if (!content || running) return;
     setRunning(true);
     setInput("");
+    // 新任务 = 新回复气泡：重置流式定位，避免 token 追加到上一轮的助手气泡
+    lastAssistantId.current = null;
+    lastToolId.current = null;
     setItems((prev) => [...prev, { id: nextId++, kind: "user", text: content }]);
     try {
       const created = await createTask(content, MAX_STEPS, threadId || undefined);
@@ -252,6 +300,8 @@ export default function App() {
     setRunning(true);
     setActiveTaskId(taskId);
     rememberTask(taskId);
+    lastAssistantId.current = null;
+    lastToolId.current = null;
     // 沿用该会话的线程：后续发言在同一线程续聊，上下文连续
     const found = tasks.find((t) => t.task_id === taskId);
     setThreadId(found ? found.thread_id : "");
@@ -291,6 +341,8 @@ export default function App() {
     setActiveTaskId(null);
     setRunning(false);
     setInput("");
+    lastAssistantId.current = null;
+    lastToolId.current = null;
     setThreadId(""); // 新会话 = 新线程（由服务端自动生成）
     const url = new URL(window.location.href);
     url.hash = "";

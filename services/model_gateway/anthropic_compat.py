@@ -208,6 +208,7 @@ class AnthropicCompatibleProvider:
         *,
         model: str | None = None,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[str]:
         system, wire = _serialize_messages(messages)
         payload: dict = {
@@ -220,6 +221,8 @@ class AnthropicCompatibleProvider:
             payload["system"] = system
         if temperature is not None:
             payload["temperature"] = temperature
+        if tools:
+            payload["tools"] = _to_anthropic_tools(tools)
         async with self._client.stream(
             "POST", self._messages_url, json=payload, headers=self._headers()
         ) as resp:

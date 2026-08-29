@@ -176,6 +176,7 @@ class OpenAICompatibleProvider:
         *,
         model: str | None = None,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[str]:
         payload: dict = {
             "model": model or self._model,
@@ -184,6 +185,8 @@ class OpenAICompatibleProvider:
         }
         if temperature is not None:
             payload["temperature"] = temperature
+        if tools:
+            payload["tools"] = tools
         async with self._client.stream(
             "POST", self._base_url + CHAT_ENDPOINT, json=payload, headers=self._headers()
         ) as resp:

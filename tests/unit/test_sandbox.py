@@ -88,8 +88,8 @@ class ScriptedSandboxProvider:
         )
 
     async def stream(self, messages, **kw):
-        if False:
-            yield ""
+        resp = await self.chat(messages, **kw)
+        yield resp.content
 
 
 async def test_agent_runs_code_via_sandbox() -> None:
@@ -102,6 +102,9 @@ async def test_agent_runs_code_via_sandbox() -> None:
 
 
 async def test_agent_receives_native_tools_param() -> None:
+    # L6：上游(OpenCode Zen)对 stream+tools 会断连，actor 走 stream（不带 tools）；
+    # stream 异常时降级一次性 chat 并携带 tools（function-calling schema）。
+    # 本测试模拟"上游流式不可用"→ 验证降级 chat 正确传递 tools。
     captured: dict = {}
 
     class CaptureProvider:
@@ -112,8 +115,7 @@ async def test_agent_receives_native_tools_param() -> None:
             )
 
         async def stream(self, messages, **kw):
-            if False:
-                yield ""
+            raise RuntimeError("upstream stream unsupported")  # 模拟上游 stream+tools 断连
 
     reg = create_default_registry(sandbox=LocalProcessSandbox())
     agent = build_react_agent(CaptureProvider(), reg, max_steps=2)

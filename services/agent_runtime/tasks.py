@@ -192,6 +192,8 @@ class TaskManager:
                 memory_context=memory_context,
                 approval=self._approval,  # F1.3：None=不启用审批门
                 approval_scope=approval_scope,  # TOFU：已信任的工具免 interrupt 直行
+                # L6：LLM 每吐一段 token 实时写入 events → SSE stream 轮询即时推前端（打字机）
+                on_token=lambda d: task.events.append({"type": "token", "content": d}),
             )
             # F1.3 中断恢复循环：工具需审批时图发 interrupt 挂起 → 登记审批请求 +
             # 状态转 awaiting_approval → 等人工决策（REST）→ Command(resume=...) 续跑。

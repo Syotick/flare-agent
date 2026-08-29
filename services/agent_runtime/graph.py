@@ -7,8 +7,10 @@ LangGraph 图显式化循环的好处：每步可 checkpoint、可中断、可�
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+from collections.abc import Callable
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -74,7 +76,11 @@ def _build_tool_schema(registry: ToolRegistry) -> str:
     for tool in registry.list():
         lines.append(f"- {tool.name}: {tool.description}")
         lines.append(f"  参数(JSON Schema): {json.dumps(tool.parameters, ensure_ascii=False)}")
-    lines.append("需要工具时按上述 schema 输出决策；否则直接回答。")
+    lines.append(
+        "回复必须且只能输出一个 JSON 对象决策（不要输出任何其他文字或格式）："
+        '需要工具时用 {"action":"call_tool","tool":{"name":"<工具名>","args":{...}}}；'
+        '不需要工具时用 {"action":"final","answer":"<你的回答>"}。'
+    )
     return chr(10).join(lines)
 
 
@@ -99,6 +105,7 @@ def build_react_agent(
     memory_context: str | None = None,
     approval: ApprovalManager | None = None,
     approval_scope: str | None = None,
+    on_token: Callable[[str], None] | None = None,
 ):
     """构建 ReAct 核心图：actor ↔ tool_executor（带预算熔断 + 审批门）。
 
@@ -145,10 +152,25 @@ def build_react_agent(
                 content = memory_context + "\n\n" + content
             messages.append(LLMMessage(role="user", content=content))
         tools = _build_tools_json(registry) if registry.list() else None
-        response = await llm.chat(messages, tools=tools)
-        messages.append(LLMMessage(role="assistant", content=response.content))
+        # L6：真·token 级流式——llm.stream 逐段收集决策（不直接外发：模型输出的是
+        # JSON 决策文本，原文不可见，见下方 answer 回放）。注意：上游(OpenCode Zen)对
+        # stream+tools 会断连(ConnectError)，故 stream 不带 tools 参数（工具 schema 已在
+        # system 提示中）；stream 异常时降级一次性 chat（带 tools）兜底，保证任务稳定。
+        parts: list[str] = []
         try:
-            decision = _parse_decision(response.content)
+            async for delta in llm.stream(messages):
+                parts.append(delta)
+        except Exception as exc:  # noqa: BLE001 - 流式不稳定时降级 chat 兜底
+            logger.warning("llm.stream 失败(%s)，降级 chat 兜底", exc)
+            parts = []
+        if not parts:
+            response = await llm.chat(messages, tools=tools)
+            content = response.content
+        else:
+            content = "".join(parts)
+        messages.append(LLMMessage(role="assistant", content=content))
+        try:
+            decision = _parse_decision(content)
         except InvalidModelOutput as exc:
             # F3: 坏决策显式化——记日志 + 回灌 INVALID_MODEL_OUTPUT 观察，让模型重试
             logger.warning("INVALID_MODEL_OUTPUT: %s", exc)
@@ -159,6 +181,17 @@ def build_react_agent(
                 "pending_tool": None,
                 "action": "call_tool",
             }
+        # L6：流式回放干净 answer——决策是 JSON（含工具调用），原文不外泄；把解析出的
+        # answer 按小段推送 on_token（每段小间隔）→ SSE 逐段转发 → 前端逐字打字机。
+        if on_token is not None and decision.answer:
+            # 打字机节奏：短回复也给足时间让"逐字打出"肉眼可见；长回复总时长封顶 2.5s
+            answer_text = decision.answer
+            total = min(2.5, 0.4 + len(answer_text) * 0.03)
+            nseg = max(1, (len(answer_text) + 5) // 6)
+            gap = total / nseg
+            for i in range(0, len(answer_text), 6):
+                on_token(answer_text[i : i + 6])
+                await asyncio.sleep(gap)
         if decision.action == "call_tool" and decision.tool is not None:
             return {
                 "messages": messages,
@@ -167,7 +200,7 @@ def build_react_agent(
             }
         return {
             "messages": messages,
-            "output": decision.answer or response.content,
+            "output": decision.answer or content,
             "status": "completed",
             "action": "final",
             "pending_tool": None,

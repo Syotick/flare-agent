@@ -72,7 +72,7 @@ class SandboxCallProvider:
             )
         return LLMResponse(content=content, model=self.model, usage=LLMUsage())
 
-    async def stream(self, messages, *, model=None, temperature=None):
+    async def stream(self, messages, *, model=None, temperature=None, tools: list[dict] | None = None):
         resp = await self.chat(messages, model=model, temperature=temperature)
         yield resp.content
 
@@ -116,7 +116,7 @@ class DoubleSandboxProvider:
             usage=LLMUsage(),
         )
 
-    async def stream(self, messages, *, model=None, temperature=None):
+    async def stream(self, messages, *, model=None, temperature=None, tools: list[dict] | None = None):
         resp = await self.chat(messages, model=model, temperature=temperature)
         yield resp.content
 

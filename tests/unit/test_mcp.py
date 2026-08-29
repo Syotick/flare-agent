@@ -241,8 +241,9 @@ class _SequenceMcpProvider:
             )
         return LLMResponse(content=decision.model_dump_json(), model="seq")
 
-    async def stream(self, messages, *, model=None, temperature=None) -> AsyncIterator[str]:
-        yield "."
+    async def stream(self, messages, *, model=None, temperature=None, tools: list[dict] | None = None) -> AsyncIterator[str]:
+        resp = await self.chat(messages, model=model, temperature=temperature, tools=tools)
+        yield resp.content
 
 
 async def test_sse_splitter_handles_cross_chunk():

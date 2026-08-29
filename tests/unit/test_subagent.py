@@ -39,8 +39,9 @@ class _SlowProvider:
             )
         return LLMResponse(content=answer.model_dump_json(), model="slow")
 
-    async def stream(self, messages, *, model=None, temperature=None) -> AsyncIterator[str]:
-        yield "."
+    async def stream(self, messages, *, model=None, temperature=None, tools: list[dict] | None = None) -> AsyncIterator[str]:
+        resp = await self.chat(messages, model=model, temperature=temperature, tools=tools)
+        yield resp.content
 
 
 def _slow_registry(state: dict) -> ToolRegistry:

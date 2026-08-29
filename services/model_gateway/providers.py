@@ -81,4 +81,5 @@ class ModelProvider(Protocol):
         *,
         model: str | None = None,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[str]: ...

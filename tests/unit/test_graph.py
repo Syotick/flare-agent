@@ -25,7 +25,7 @@ class AlwaysToolProvider:
         )
         return LLMResponse(content=content, model=self.model, usage=LLMUsage())
 
-    async def stream(self, messages, *, model=None, temperature=None):
+    async def stream(self, messages, *, model=None, temperature=None, tools: list[dict] | None = None):
         resp = await self.chat(messages, model=model, temperature=temperature)
         yield resp.content
 
@@ -47,7 +47,7 @@ class FixedDecisionProvider:
             content = json.dumps({"action": "final", "answer": f"完成: {messages[-1].content}"})
         return LLMResponse(content=content, model=self.model, usage=LLMUsage())
 
-    async def stream(self, messages, *, model=None, temperature=None):
+    async def stream(self, messages, *, model=None, temperature=None, tools: list[dict] | None = None):
         resp = await self.chat(messages, model=model, temperature=temperature)
         yield resp.content
 

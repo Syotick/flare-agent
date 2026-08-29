@@ -65,8 +65,9 @@ class MockModelProvider:
         *,
         model: str | None = None,
         temperature: float | None = None,
+        tools: list[dict] | None = None,
     ) -> AsyncIterator[str]:
-        response = await self.chat(messages, model=model, temperature=temperature)
+        response = await self.chat(messages, model=model, temperature=temperature, tools=tools)
         # 词级分块（更接近真实 token 流形状），勿让上层形成"逐字符"依赖（R4）
         for word in response.content.split(" "):
             yield word + " "
