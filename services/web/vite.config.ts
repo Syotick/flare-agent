@@ -5,6 +5,10 @@ import tailwindcss from "@tailwindcss/vite";
 // dev 代理：/v1 -> 后端 FastAPI(:8000)，前端无跨域烦恼
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    // 构建时间戳：前端版本标识，刷新后确认是否加载到最新构建
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   server: {
     port: 5173,
     proxy: {

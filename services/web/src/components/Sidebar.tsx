@@ -21,8 +21,9 @@ export default function Sidebar(props: {
   view: ViewId;
   onNavigate: (view: ViewId) => void;
   pendingApprovals: number;
+  buildTag?: string;
 }) {
-  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate, pendingApprovals } = props;
+  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate, pendingApprovals, buildTag } = props;
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
 
@@ -234,6 +235,7 @@ export default function Sidebar(props: {
       <div className="flex flex-none items-center gap-2 border-t border-border px-2 pt-2.5 text-xs text-muted-foreground">
         <span className={cn("h-1.5 w-1.5 flex-none rounded-full", running ? "bg-warning shadow-[0_0_8px_rgba(242,183,78,0.7)]" : "bg-success shadow-[0_0_8px_rgba(52,211,153,0.6)]")} />
         <span className="flex-1">{running ? "运行中" : "就绪"}</span>
+        {buildTag && <span className="hidden text-[10px] text-muted-foreground/60 lg:inline" title="构建时间">{buildTag}</span>}
 
       </div>
 

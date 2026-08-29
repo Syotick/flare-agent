@@ -14,6 +14,10 @@ import type { Item } from "./types";
 
 export type ViewId = "chat" | "kb" | "memory" | "ops" | "capabilities" | "api" | "approvals" | "model";
 
+// 由 vite define 注入的构建时间戳（前端版本标识）
+declare const __BUILD_TIME__: string;
+const BUILD_TAG = typeof __BUILD_TIME__ !== "undefined" ? __BUILD_TIME__.slice(0, 19).replace("T", " ") : "";
+
 let nextId = 1;
 
 interface ResultPayload {
@@ -242,7 +246,8 @@ export default function App() {
   };
 
   const pickTask = (taskId: string) => {
-    // 切换会话：先清空消息区，再回放该会话轨迹（SSE 会重新推送全部事件）
+    // 切换会话：先放该会话的用户消息（SSE 只回放 assistant 侧事件，user 消息需要从
+    // 任务数据恢复，否则历史会话会丢失用户输入），随后 SSE 重放助手回复与工具轨迹
     setItems([]);
     setRunning(true);
     setActiveTaskId(taskId);
@@ -250,8 +255,15 @@ export default function App() {
     // 沿用该会话的线程：后续发言在同一线程续聊，上下文连续
     const found = tasks.find((t) => t.task_id === taskId);
     setThreadId(found ? found.thread_id : "");
+    if (found?.task_input) {
+      setItems((prev) => [...prev, { id: nextId++, kind: "user", text: found.task_input }]);
+    }
     getTask(taskId)
       .then((d) => {
+        // tasks 列表可能没有该任务（如刷新恢复、多实例），用详情补 user 消息
+        if (!found && d.task_input) {
+          setItems((prev) => [...prev, { id: nextId++, kind: "user", text: d.task_input }]);
+        }
         if (d.status !== "pending" && d.status !== "running") setRunning(false);
       })
       .catch(() => setRunning(false));
@@ -305,6 +317,7 @@ export default function App() {
           view={view}
           onNavigate={setView}
           pendingApprovals={pendingApprovals}
+          buildTag={BUILD_TAG}
         />
       </div>
       <main className="flex min-w-0 flex-1 flex-col">
