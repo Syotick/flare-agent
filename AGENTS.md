@@ -20,7 +20,7 @@
 7. 强企业级技术栈，云原生
 
 ## 已确认决策（2026-08-27 / 2026-08-28 / 2026-08-29）
-- 2026-08-29：模型配置与供应商接入已交付——M4 wiring 修复（create_app 真正传 llm 给 TaskManager，配了 key 才生效，之前永远 mock）+ ModelConfigStore（env>JSON>settings 优先级、脱敏、key 只在服务端 0600）+ /v1/settings/model GET/PUT/presets/test + 控制台「模型」页（预设下拉/保存并生效/测试连接/清除 key）+ 保存热生效（set_llm，新建任务生效）；Anthropic 原生协议（/v1/messages）+ 模型页 CC Switch 风格重构（供应商卡片+模型 chips）；216 测试全绿。下一步 = 云部署 + 压测实测容量
+- 2026-08-29：模型配置与供应商接入已交付——M4 wiring 修复（create_app 真正传 llm 给 TaskManager，配了 key 才生效，之前永远 mock）+ ModelConfigStore（env>JSON>settings 优先级、脱敏、key 只在服务端 0600）+ /v1/settings/model GET/PUT/presets/test + 控制台「模型」页（预设下拉/保存并生效/测试连接/清除 key）+ 保存热生效（set_llm，新建任务生效）；Anthropic 原生协议（/v1/messages）+ 模型页 CC Switch 风格重构（供应商卡片+模型 chips）+ 自定义供应商多配置（profiles CRUD + 前端「我的供应商」）；218 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：审批进阶已交付（F1.3/F2.4）——TOFU 首用信任（同作用域获批后免 interrupt 直行）+ ApprovalBackend 抽象（Local/Redis 跨节点轮询唤醒 + 信任集共享 + fail-fast）+ ApprovalsView 审批中心（历史台账/集中决策/待审批徽标）；200 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：人机协作审批 + 工具权限分级已交付（F1.3/F2.4）——Tool.permission 分级 + 编排层审批门（graph interrupt → awaiting_approval → REST decide → Command(resume)）+ 审批 API + Web 审批卡片 + SSE approval 事件 + 超时自动拒绝；190 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-28：开发线已走完 MCP 客户端 + Skills（FR-2/FR-3）→ 多 Agent 并行（F1.4）→ CLI/OpenAI 兼容 REST API（F9.2/9.3）→ 前端入口闭环，下一步 = 云部署 + 压测实测容量
@@ -59,7 +59,7 @@
 - **TOFU + 多实例审批后端 + 审批中心（已交付，F1.3/F2.4 进阶）**：TOFU 首用信任（同作用域=会话线程默认获批一次后免 interrupt 直行，FLARE_APPROVAL_TOFU/TOFU_SCOPE 可调，信任记录 manager 统一门控）；ApprovalBackend 抽象（Local 进程内 asyncio.Event + Redis 多实例共享：请求 hash/待审批 set/有序索引 zset/TOFU 信任 set，跨节点轮询唤醒，FLARE_APPROVAL_BACKEND=redis，连不上 fail-fast 任务优雅 failed）；graph/tasks/routes 全 async + approval_scope 透传；审批中心 ApprovalsView（历史台账 + 待审批 5s 自刷新 + 批准/拒绝 + 决策人/原因）+ Sidebar「审批」导航待审批徽标 + App 8s 轮询。learning/16 补七~十章。坑：后端 decide 不再自动记信任（移到 manager 门控）；写 TSX 内容禁用反引号（会截断外层模板串）。200 测试全绿（新增 10），ruff/black 干净，tsc/vite 通过，冒烟打通（TOFU 同线程免审 + Redis fail-fast）。
 - **模型配置与供应商接入（已交付，M4 wiring 修复 + 控制台「模型」页）**：create_app 装配 build_provider（修复永远 mock）；ModelConfigStore env>JSON>settings + 脱敏；GET/PUT/presets/test；热生效 set_llm；ModelSettingsView（CC Switch 风格供应商卡片+模型 chips）+ Sidebar「模型」；Anthropic 原生协议 anthropic_compat.py；learning/17。坑：Settings 属性名 model_provider vs 本地字段 provider（映射表）；store 默认 path 从 settings.model_config_path 取；长中文文档用 Python heredoc 写。
 - 下一步：服务器到位后的云部署 + 压测实测容量
-- 回归基线：全量 216 测试全绿（test_approval 22 + test_settings_model 11 + test_provider 12 + test_mcp 21 + test_flare_cli 5 + test_capabilities 6）
+- 回归基线：全量 218 测试全绿（test_approval 22 + test_settings_model 13 + test_provider 12 + test_mcp 21 + test_flare_cli 5 + test_capabilities 6）
 
 ## 目录速览
 - `docs/README.md` — 文档中心（总索引 + 管理规范，**唯一入口**）
