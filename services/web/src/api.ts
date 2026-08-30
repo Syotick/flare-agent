@@ -48,7 +48,9 @@ export async function createTask(
   taskInput: string,
   maxSteps = 5,
   threadId?: string,
-  workspaceId?: string
+  workspaceId?: string,
+  permissionMode = "approval",
+  model?: string
 ): Promise<TaskCreated> {
   return json<TaskCreated>(
     await fetch("/v1/tasks", {
@@ -59,6 +61,8 @@ export async function createTask(
         max_steps: maxSteps,
         thread_id: threadId,
         workspace_id: workspaceId,
+        permission_mode: permissionMode,
+        model: model || null,
       }),
     })
   );

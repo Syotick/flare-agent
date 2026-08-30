@@ -10,6 +10,7 @@ import asyncio
 
 from langgraph.checkpoint.memory import MemorySaver
 
+from agent_runtime.approval import ApprovalManager, ApprovalPolicy
 from agent_runtime.tasks import TaskManager
 from model_gateway.providers import LLMResponse, LLMUsage, ToolCall, ToolCallDecision
 from tools_gateway.builtin import create_default_registry
@@ -275,3 +276,138 @@ async def test_default_workspace_has_no_fs_tools(tmp_path):
         await asyncio.sleep(0.02)
     # default 无 read 工具 -> 模型被观察"未知工具"，任务仍结束（mock 语义：最终输出非文件内容）
     assert t.status in ("completed", "failed")
+
+# ---------------- DSH 权限模式（read-only / approval / unrestricted） ----------------
+
+def test_task_view_read_only_filters_write_tools(tmp_path):
+    """read-only 模式：只注入只读工具（read/glob/grep），write/edit/bash 不注入。"""
+    reg = create_default_registry()
+    view = reg.task_view(str(tmp_path)).read_only()
+    names = {t.name for t in view.list()}
+    assert {"read", "glob", "grep"} <= names
+    assert not {"write", "edit", "bash"} & names
+
+
+class FakeReadThenFinal:
+    """读 a.txt -> 拿观察后 final（只读链路）。"""
+
+    async def chat(self, messages, **_kw):
+        last = messages[-1] if messages else None
+        if last is not None and last.role == "tool":
+            decision = ToolCallDecision(action="final", answer="读到: " + last.content[:200])
+        else:
+            decision = ToolCallDecision(
+                action="call_tool", tool=ToolCall(name="read", args={"file_path": "a.txt"})
+            )
+        return LLMResponse(
+            content=decision.model_dump_json(),
+            model="fake",
+            usage=LLMUsage(prompt_tokens=1, completion_tokens=1),
+        )
+
+    async def stream(self, messages, **_kw):
+        resp = await self.chat(messages)
+        yield resp.content
+
+
+async def test_read_only_mode_still_reads(tmp_path):
+    """read-only 模式：read 可用（任务正常完成并读到内容）。"""
+    (tmp_path / "a.txt").write_text("secret data", encoding="utf-8")
+    mgr = TaskManager(
+        registry=create_default_registry(),
+        llm=FakeReadThenFinal(),
+        checkpointer_factory=_mem_saver,
+    )
+    task = await mgr.create("读 a.txt", workspace_id=str(tmp_path), permission_mode="read-only")
+    deadline = asyncio.get_event_loop().time() + 5
+    while asyncio.get_event_loop().time() < deadline:
+        t = await mgr.get(task.task_id)
+        if t.status in ("completed", "failed", "budget_exceeded"):
+            break
+        await asyncio.sleep(0.02)
+    assert t.status == "completed", f"read-only 任务未完成: {t.status} {t.result}"
+    assert "secret data" in (t.result or {}).get("output", "")
+    assert t.permission_mode == "read-only"
+
+
+class FakeBashThenFinal:
+    """跑 bash echo -> 观察后 final（destructive 链路，验证审批门）。"""
+
+    async def chat(self, messages, **_kw):
+        last = messages[-1] if messages else None
+        if last is not None and last.role == "tool":
+            decision = ToolCallDecision(action="final", answer="bash 输出: " + last.content[:200])
+        else:
+            decision = ToolCallDecision(
+                action="call_tool", tool=ToolCall(name="bash", args={"command": "echo hi-from-bash"})
+            )
+        return LLMResponse(
+            content=decision.model_dump_json(),
+            model="fake",
+            usage=LLMUsage(prompt_tokens=1, completion_tokens=1),
+        )
+
+    async def stream(self, messages, **_kw):
+        resp = await self.chat(messages)
+        yield resp.content
+
+
+async def test_unrestricted_mode_skips_approval(tmp_path):
+    """unrestricted 模式：destructive 工具（bash）免审批直接执行。"""
+    mgr = TaskManager(
+        registry=create_default_registry(),
+        llm=FakeBashThenFinal(),
+        checkpointer_factory=_mem_saver,
+        approval=ApprovalManager(ApprovalPolicy(require_level="destructive")),
+    )
+    task = await mgr.create(
+        "跑 bash", workspace_id=str(tmp_path), permission_mode="unrestricted"
+    )
+    deadline = asyncio.get_event_loop().time() + 8
+    while asyncio.get_event_loop().time() < deadline:
+        t = await mgr.get(task.task_id)
+        if t.status in ("completed", "failed", "budget_exceeded"):
+            break
+        await asyncio.sleep(0.02)
+    assert t.status == "completed", f"unrestricted 任务未完成: {t.status} {t.result}"
+    assert "hi-from-bash" in (t.result or {}).get("output", "")
+
+
+async def test_model_resolver_selects_per_task_llm(tmp_path):
+    """per-task 模型：resolver 命中返回 provider 并用它执行；未命中回退默认 llm。"""
+    (tmp_path / "a.txt").write_text("model-selected", encoding="utf-8")
+    calls: list[str] = []
+
+    def resolver(model_id: str):
+        calls.append(model_id)
+        if model_id == "p_fake":
+            return FakeReadThenFinal()
+        return None
+
+    mgr = TaskManager(
+        registry=create_default_registry(),
+        llm=FakeReadThenFinal(),
+        checkpointer_factory=_mem_saver,
+        model_resolver=resolver,
+    )
+    task = await mgr.create("读 a.txt", workspace_id=str(tmp_path), model="p_fake")
+    deadline = asyncio.get_event_loop().time() + 5
+    while asyncio.get_event_loop().time() < deadline:
+        t = await mgr.get(task.task_id)
+        if t.status in ("completed", "failed", "budget_exceeded"):
+            break
+        await asyncio.sleep(0.02)
+    assert calls == ["p_fake"]
+    assert t.status == "completed", f"resolver 任务未完成: {t.status} {t.result}"
+    assert "model-selected" in (t.result or {}).get("output", "")
+
+    # 未命中 -> 回退默认 llm，任务仍正常
+    task2 = await mgr.create("读 a.txt", workspace_id=str(tmp_path), model="p_missing")
+    deadline2 = asyncio.get_event_loop().time() + 5
+    while asyncio.get_event_loop().time() < deadline2:
+        t2 = await mgr.get(task2.task_id)
+        if t2.status in ("completed", "failed", "budget_exceeded"):
+            break
+        await asyncio.sleep(0.02)
+    assert t2.status == "completed"
+

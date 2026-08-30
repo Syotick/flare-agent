@@ -279,6 +279,23 @@ class ModelConfigStore:
         """脱敏列表：key 只回 has_api_key。"""
         return [self._sanitize_profile(p) for p in self._load_profiles()]
 
+    def profile_to_settings(self, profile_id: str) -> Settings | None:
+        """按自定义供应商 id 生成 Settings 快照（per-task 模型选择）。
+
+        无该 profile 返回 None（调用方回退默认激活模型）。
+        """
+        profile = next((p for p in self._load_profiles() if p["id"] == profile_id), None)
+        if profile is None:
+            return None
+        return self._settings.model_copy(
+            update={
+                "model_provider": profile["provider"],
+                "model_api_key": profile.get("api_key", ""),
+                "model_base_url": profile["base_url"],
+                "model_name": profile["model_name"],
+            }
+        )
+
     def save_profile(self, data: dict[str, Any]) -> dict[str, Any]:
         """新建或更新自定义供应商。
 

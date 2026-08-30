@@ -25,6 +25,10 @@ class TaskCreate(BaseModel):
     max_steps: int = Field(default=5, ge=1, le=50)
     # workspace_id 可为服务器真实目录路径（数百字符），上限放宽到 512
     workspace_id: str = Field(default="default", min_length=1, max_length=512)
+    # DSH 对齐：权限模式（read-only=只读工具+免审批 / approval=审批门 / unrestricted=免审批）
+    permission_mode: str = Field(default="approval", pattern="^(read-only|approval|unrestricted)$")
+    # DSH 对齐：per-task 模型选择（自定义供应商 profile id；None=用默认激活模型）
+    model: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class TaskRename(BaseModel):
@@ -43,12 +47,16 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
             thread_id=body.thread_id,
             max_steps=body.max_steps,
             workspace_id=body.workspace_id,
+            permission_mode=body.permission_mode,
+            model=body.model,
         )
         return {
             "task_id": task.task_id,
             "thread_id": task.thread_id,
             "status": task.status,
             "workspace_id": task.workspace_id,
+            "permission_mode": task.permission_mode,
+            "model": task.model,
         }
 
     @router.get("/tasks")

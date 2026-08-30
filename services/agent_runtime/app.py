@@ -167,12 +167,24 @@ def create_app(
         # M4 wiring 修复：真实服务按有效配置（env>本地JSON>默认）装配模型网关，
         # 而非固定 MockModelProvider——配置了 openai/DeepSeek/通义 key 才能真正生效
         llm = build_provider(model_store.to_settings())
+
+        def _resolve_task_model(model_id: str):
+            """DSH 对齐：per-task 模型解析（按自定义供应商 id 构建 provider；无效回退默认激活）。"""
+            snap = model_store.profile_to_settings(model_id)
+            if snap is None:
+                return None
+            try:
+                return build_provider(snap)
+            except Exception:  # noqa: BLE001 - 配置无效时回退默认模型，不阻断任务
+                return None
+
         task_manager = TaskManager(
             registry=registry,
             memory=mem,
             store=_build_task_store(settings),
             approval=approval_manager,  # F1.3：任务图启用审批门
             llm=llm,
+            model_resolver=_resolve_task_model,  # DSH 对齐：per-task 模型选择
         )
 
     # F1.4：多 Agent 子任务运行时（共享父的 llm/registry，工具注册进同一注册表）

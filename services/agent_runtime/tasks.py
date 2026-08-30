@@ -56,6 +56,8 @@ class TaskRecord:
     tenant_id: str = "default"  # M5：多租户隔离边界
     workspace_id: str = "default"  # DSH 对齐：工作区（会话命名空间，Web 先选工作区再新建对话）
     title: str | None = None  # 会话重命名显示名（None=用 task_input 自动标题）
+    permission_mode: str = "approval"  # DSH 权限模式：read-only | approval | unrestricted
+    model: str | None = None  # DSH 对齐：per-task 模型选择（profile id，None=用默认激活模型）
 
     @property
     def done(self) -> bool:
@@ -75,6 +77,8 @@ class TaskRecord:
             "tenant_id": self.tenant_id,
             "workspace_id": self.workspace_id,
             "title": self.title,
+            "permission_mode": self.permission_mode,
+            "model": self.model,
         }
 
 
@@ -90,6 +94,7 @@ class TaskManager:
         memory=None,
         store=None,
         approval: ApprovalManager | None = None,
+        model_resolver=None,
     ) -> None:
         self._registry = registry or create_default_registry()
         self._llm = llm or MockModelProvider()
@@ -97,6 +102,8 @@ class TaskManager:
         self._memory = memory  # M3b 分层记忆（None 则不做上下文注入）
         self._store: TaskStore = store or InMemoryTaskStore()  # M5：持久化存储
         self._approval = approval  # F1.3 审批管理器（None=不启用审批门）
+        # DSH 对齐：per-task 模型解析器（model id -> ModelProvider | None；None=用默认激活模型）
+        self._model_resolver = model_resolver
         self._tasks: dict[str, TaskRecord] = {}  # 进程内缓存（同步读 + 持久化写穿）
 
     @property
@@ -131,6 +138,8 @@ class TaskManager:
         max_steps: int = 5,
         tenant_id: str | None = None,
         workspace_id: str | None = None,
+        permission_mode: str = "approval",
+        model: str | None = None,
     ) -> TaskRecord:
         """登记任务并后台执行，立即返回（L1：请求不被任务耗时阻塞）。"""
         task = TaskRecord(
@@ -140,6 +149,8 @@ class TaskManager:
             max_steps=max_steps,
             tenant_id=tenant_id or get_tenant_id(),
             workspace_id=workspace_id or "default",
+            permission_mode=permission_mode,
+            model=model,
         )
         self._tasks[task.task_id] = task
         await self._store.create(task)
@@ -177,6 +188,7 @@ class TaskManager:
     async def _execute(self, task: TaskRecord) -> None:
         task.status = "running"
         await self._save(task)
+        tmp_llm = None  # per-task 模型（resolver 构建）需在 finally 关闭
         try:
             checkpointer = await self._checkpointer_factory()
             memory_context = None
@@ -196,17 +208,32 @@ class TaskManager:
                 if ws_path.is_dir():
                     ws_root = str(ws_path.resolve())
             registry = self._registry.task_view(ws_root)
+            # DSH 权限模式：read-only = 只读工具视图（写/破坏性工具不注入）+ 免审批；
+            # unrestricted = 免审批（全部自动执行）；approval = 现状（审批门按策略）。
+            approval_gate = self._approval
+            if task.permission_mode == "read-only":
+                registry = registry.read_only()
+                approval_gate = None
+            elif task.permission_mode == "unrestricted":
+                approval_gate = None
+            # DSH 对齐：per-task 模型选择（resolver 按 profile id 建 provider；找不到回退默认激活模型）
+            llm = self._llm
+            if task.model and self._model_resolver is not None:
+                resolved = self._model_resolver(task.model)
+                if resolved is not None:
+                    tmp_llm = resolved
+                    llm = resolved
             # F1.3/F2.4：审批门 + TOFU 作用域（thread=会话线程 / tenant=租户 / off=关闭）
             approval_scope = None
-            if self._approval is not None:
-                approval_scope = self._approval.scope_for(task.thread_id, task.tenant_id)
+            if approval_gate is not None:
+                approval_scope = approval_gate.scope_for(task.thread_id, task.tenant_id)
             agent = build_react_agent(
-                self._llm,
+                llm,
                 registry,
                 max_steps=task.max_steps,
                 checkpointer=checkpointer,
                 memory_context=memory_context,
-                approval=self._approval,  # F1.3：None=不启用审批门
+                approval=approval_gate,  # F1.3：None=不启用审批门
                 approval_scope=approval_scope,  # TOFU：已信任的工具免 interrupt 直行
                 # L6：LLM 每吐一段 token 实时写入 events → SSE stream 轮询即时推前端（打字机）
                 on_token=lambda d: task.events.append({"type": "token", "content": d}),
@@ -225,11 +252,11 @@ class TaskManager:
                         for intr in update["__interrupt__"]:
                             payload = intr.value
                             if (
-                                self._approval is not None
+                                approval_gate is not None
                                 and isinstance(payload, dict)
                                 and payload.get("type") == "approval"
                             ):
-                                req = await self._approval.register(
+                                req = await approval_gate.register(
                                     task.task_id,
                                     payload["tool"],
                                     payload.get("args") or {},
@@ -287,6 +314,10 @@ class TaskManager:
             task.error = str(exc)
         finally:
             await self._save(task)
+            # per-task 模型是独立 provider 实例，用后释放 HTTP 客户端等资源
+            if tmp_llm is not None:
+                with contextlib.suppress(Exception):
+                    await tmp_llm.close()
 
     async def _save(self, task: TaskRecord) -> None:
         """写穿持久化 + 更新进程内缓存（M5：多实例/重启可恢复的底座）。

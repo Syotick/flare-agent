@@ -83,6 +83,14 @@ class ToolRegistry:
     def list(self) -> list[Tool]:
         return sorted(self._tools.values(), key=lambda t: t.name)
 
+    def read_only(self) -> ToolRegistry:
+        """只读视图：仅保留 permission==read 的工具（DSH 只读模式，写/破坏性不注入）。"""
+        view = ToolRegistry()
+        view._tools = {
+            name: t for name, t in self._tools.items() if t.permission == PERMISSION_READ
+        }
+        return view
+
     async def execute(self, name: str, args: dict[str, Any] | None = None) -> ToolResult:
         """执行工具：先按 JSON Schema 校验参数（非法抛 422），再执行。
 

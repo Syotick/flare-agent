@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createTask, deleteTask, deleteWorkspace, getTask, listApprovals, listTasks, listWorkspaces, renameTask } from "./api";
+import { createTask, deleteTask, deleteWorkspace, getTask, getModelSettings, listApprovals, listModelProfiles, listTasks, listWorkspaces, renameTask, type ModelProfile } from "./api";
 import ApiView from "./components/ApiView";
 import ApprovalsView from "./components/ApprovalsView";
 import CapabilitiesView from "./components/CapabilitiesView";
@@ -52,6 +52,11 @@ const MAX_STEPS = 8; // Agent 单次任务最大思考→行动轮次
 export default function App() {
   const [view, setView] = useState<ViewId>("chat");
   const [input, setInput] = useState("");
+  // DSH 对齐：权限模式（read-only | approval | unrestricted）+ per-task 模型选择
+  const [permissionMode, setPermissionMode] = useState("approval");
+  const [model, setModel] = useState<string | null>(null);
+  const [modelList, setModelList] = useState<ModelProfile[]>([]);
+  const [activeModelName, setActiveModelName] = useState("");
   // thread_id 由系统管理：新建会话=空(自动生成)；切换会话=沿用该会话线程（续聊上下文）
   const [threadId, setThreadId] = useState("");
   const [running, setRunning] = useState(false);
@@ -78,6 +83,16 @@ export default function App() {
   const refreshWorkspaces = () => {
     listWorkspaces().then(setWorkspaces).catch(() => undefined);
   };
+
+  // DSH 对齐：加载可用模型（自定义供应商 + 当前激活模型名），供 Composer 选择
+  useEffect(() => {
+    listModelProfiles()
+      .then(setModelList)
+      .catch(() => undefined);
+    getModelSettings()
+      .then((s) => setActiveModelName(s.model_name || ""))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     refreshHistory();
@@ -292,7 +307,14 @@ export default function App() {
     lastToolId.current = null;
     setItems((prev) => [...prev, { id: nextId++, kind: "user", text: content, ts: nowTs() }]);
     try {
-      const created = await createTask(content, MAX_STEPS, threadId || undefined, currentWorkspace);
+      const created = await createTask(
+        content,
+        MAX_STEPS,
+        threadId || undefined,
+        currentWorkspace,
+        permissionMode,
+        model || undefined
+      );
       // 同步服务端生成的线程：同会话后续消息自动续聊（上下文连续，无需用户关心 thread_id）
       setThreadId(created.thread_id);
       rememberTask(created.task_id);
@@ -486,6 +508,12 @@ export default function App() {
               onKeyDown={onKeyDown}
               disabled={!currentWorkspace}
               running={running}
+              permissionMode={permissionMode}
+              onPermissionMode={setPermissionMode}
+              model={model}
+              onModel={setModel}
+              modelList={modelList}
+              activeModelName={activeModelName}
             />
           </>
         ) : view === "kb" ? (
