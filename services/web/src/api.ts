@@ -84,6 +84,36 @@ export async function listWorkspaces(): Promise<Workspace[]> {
   return json<Workspace[]>(await fetch("/v1/workspaces"));
 }
 
+// ---------- 工作区 = 服务器真实目录（DSH browse 目录选择） ----------
+
+export interface DirEntry {
+  name: string;
+  is_dir: boolean;
+  hidden: boolean;
+}
+
+export interface DirListing {
+  path: string;
+  parent: string | null;
+  entries: DirEntry[];
+  truncated: boolean;
+}
+
+export async function listWorkspaceDirs(path?: string): Promise<DirListing> {
+  const q = path ? "?path=" + encodeURIComponent(path) : "";
+  return json<DirListing>(await fetch("/v1/workspaces/dirs" + q));
+}
+
+export async function createWorkspaceDir(path: string, name: string): Promise<{ path: string }> {
+  return json<{ path: string }>(
+    await fetch("/v1/workspaces/dirs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, name }),
+    })
+  );
+}
+
 export async function deleteTask(taskId: string): Promise<void> {
   const resp = await fetch("/v1/tasks/" + taskId, { method: "DELETE" });
   if (!resp.ok) {

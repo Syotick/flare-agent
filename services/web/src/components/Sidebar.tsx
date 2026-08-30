@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   Activity, Brain, ChevronDown, Cpu, Database, FolderOpen, MessageSquare, Plus, Puzzle, Search, ShieldCheck, Terminal, Trash2, X,
 } from "lucide-react";
-import { cn, groupByDate, autoTitle } from "../lib/utils";
+import { cn, groupByDate, autoTitle, workspaceLabel } from "../lib/utils";
 import type { TaskDetail, Workspace } from "../api";
+import DirectoryPicker from "./DirectoryPicker";
 import FlareLogo from "./FlareLogo";
 import type { ViewId } from "../App";
 import {
@@ -31,19 +32,8 @@ export default function Sidebar(props: {
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
   const [wsOpen, setWsOpen] = useState(false);
   const [wsName, setWsName] = useState("");
-  // DSH 对齐：工作区 = 打开文件系统选目录（浏览器仅能取到目录名，作为工作区 id）
-  const dirInputRef = useRef<HTMLInputElement>(null);
-
-  const onDirPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // 允许重复选择同一目录
-    if (!file) return;
-    const dirName = file.webkitRelativePath.split("/")[0];
-    if (dirName) {
-      onSwitchWorkspace(dirName);
-      setWsOpen(false);
-    }
-  };
+  // DSH browse 对齐：打开应用内目录浏览器，选中的服务器真实路径作为工作区
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -89,8 +79,11 @@ export default function Sidebar(props: {
           title="选择工作区"
         >
           <FolderOpen className="h-3.5 w-3.5 flex-none text-primary" />
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-            {currentWorkspace ?? "选择工作区"}
+          <span
+            className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground"
+            title={currentWorkspace ?? "选择工作区"}
+          >
+            {currentWorkspace ? workspaceLabel(currentWorkspace) : "选择工作区"}
           </span>
           <ChevronDown className={"h-3.5 w-3.5 flex-none text-muted-foreground transition-transform " + (wsOpen ? "rotate-180" : "")} />
         </button>
@@ -101,7 +94,7 @@ export default function Sidebar(props: {
                 工作区
               </div>
               {wsList.length === 0 && (
-                <div className="px-2.5 py-1.5 text-xs text-muted-foreground">还没有工作区，输入名字新建</div>
+                <div className="px-2.5 py-1.5 text-xs text-muted-foreground">还没有工作区，打开文件夹新建</div>
               )}
               {wsList.map((w) => (
                 <button
@@ -114,7 +107,7 @@ export default function Sidebar(props: {
                       : "text-muted-foreground hover:bg-muted hover:text-foreground")
                   }
                 >
-                  <span className="flex-1 truncate">{w.workspace_id}</span>
+                  <span className="flex-1 truncate" title={w.workspace_id}>{workspaceLabel(w.workspace_id)}</span>
                   <span className="flex-none text-[10px] text-muted-foreground/60">{w.task_count}</span>
                 </button>
               ))}
@@ -122,8 +115,8 @@ export default function Sidebar(props: {
             <div className="flex flex-col gap-1 border-t border-border p-1.5">
               <button
                 className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                title="打开系统文件夹选择器，所选目录名作为工作区"
-                onClick={() => dirInputRef.current?.click()}
+                title="在服务器文件系统里浏览并选择工作区目录"
+                onClick={() => { setPickerOpen(true); setWsOpen(false); }}
               >
                 <FolderOpen className="h-3.5 w-3.5 flex-none text-primary" />
                 打开文件夹作为工作区…
@@ -145,13 +138,6 @@ export default function Sidebar(props: {
                   className="h-7 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
                 />
               </div>
-              <input
-                ref={dirInputRef}
-                type="file"
-                {...({ webkitdirectory: true } as React.InputHTMLAttributes<HTMLInputElement>)}
-                className="hidden"
-                onChange={onDirPicked}
-              />
             </div>
           </div>
         )}
@@ -370,6 +356,16 @@ export default function Sidebar(props: {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* DSH browse：工作区目录选择对话框 */}
+      <DirectoryPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(p) => {
+          onSwitchWorkspace(p);
+          setPickerOpen(false);
+        }}
+      />
     </aside>
   );
 }

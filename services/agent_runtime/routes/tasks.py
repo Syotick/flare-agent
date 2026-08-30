@@ -23,7 +23,8 @@ class TaskCreate(BaseModel):
     task_input: str = Field(min_length=1, max_length=10000)
     thread_id: str | None = None
     max_steps: int = Field(default=5, ge=1, le=50)
-    workspace_id: str = Field(default="default", min_length=1, max_length=64)
+    # workspace_id 可为服务器真实目录路径（数百字符），上限放宽到 512
+    workspace_id: str = Field(default="default", min_length=1, max_length=512)
 
 
 def build_tasks_router(manager: TaskManager) -> APIRouter:
