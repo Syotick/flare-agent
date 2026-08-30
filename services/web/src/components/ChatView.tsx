@@ -64,6 +64,7 @@ function StatusLine({ text, tone }: { text: string; tone: "info" | "warn" | "err
     <div
       className={cn(
         "flex animate-fade-in items-center gap-1.5 px-1 text-[11.5px]",
+        "min-w-0 break-words",
         tone === "error" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-muted-foreground"
       )}
     >
@@ -113,7 +114,7 @@ function ApprovalCard({ approval }: { approval: ApprovalInfo }) {
         <span className="text-foreground">{approval.tool_name}</span>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{PERMISSION_LABEL[approval.permission] ?? approval.permission}</span>
       </div>
-      {approval.description && <p className="mt-1 text-[11px] text-muted-foreground">{approval.description}</p>}
+      {approval.description && <p className="mt-1 break-words text-[11px] leading-relaxed text-muted-foreground">{approval.description}</p>}
       <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-2 font-mono text-[11px] leading-relaxed text-foreground">
         {JSON.stringify(approval.args, null, 2)}
       </pre>

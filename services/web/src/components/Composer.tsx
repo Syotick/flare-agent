@@ -82,7 +82,7 @@ export default function Composer(props: {
               <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", permOpen && "rotate-180")} />
             </button>
             {permOpen && (
-              <div className="absolute left-0 top-full z-40 mt-1 w-60 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl">
+              <div className="absolute bottom-full left-0 z-40 mb-1 w-60 overflow-hidden rounded-xl border border-border bg-card p-1 shadow-2xl">
                 {PERMISSION_MODES.map((m) => (
                   <button
                     key={m.id}
@@ -115,7 +115,7 @@ export default function Composer(props: {
               <ChevronDown className={cn("h-3 w-3 flex-none text-muted-foreground transition-transform", modelOpen && "rotate-180")} />
             </button>
             {modelOpen && (
-              <div className="absolute left-0 top-full z-40 mt-1 max-h-72 w-72 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-2xl">
+              <div className="absolute bottom-full left-0 z-40 mb-1 max-h-72 w-72 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-2xl">
                 <button
                   onClick={() => { onModel(null); setModelOpen(false); }}
                   className={cn(

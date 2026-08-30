@@ -55,7 +55,7 @@ export default function MarkdownView({ text, streaming = false }: { text: string
           pre({ node, children }) {
             const { lang, text: raw } = extractCodeInfo(node);
             return (
-              <div className="group relative my-2 overflow-hidden rounded-xl border border-border bg-[#0d0a08]">
+              <div className="group relative my-2 w-full max-w-full overflow-hidden rounded-xl border border-border bg-[#0d0a08]">
                 <div className="flex items-center justify-between border-b border-border/70 bg-[#14100d] px-3 py-1.5">
                   <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{lang}</span>
                   <CopyButton text={raw} />

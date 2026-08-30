@@ -72,7 +72,7 @@ export default function DirectoryPicker(props: {
       onClick={onClose}
     >
       <div
-        className="flex h-[520px] w-[680px] max-w-[94vw] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        className="flex h-[520px] max-h-[92vh] w-[680px] max-w-[94vw] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* header */}
@@ -150,7 +150,7 @@ export default function DirectoryPicker(props: {
         </div>
 
         {/* footer */}
-        <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-border bg-background/50 px-2.5 py-1.5">
             <Plus className="h-3.5 w-3.5 flex-none text-muted-foreground" />
             <input

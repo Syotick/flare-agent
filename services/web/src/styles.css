@@ -139,6 +139,31 @@
 /* ============================================================
    Markdown 正文排版（助手回复渲染）
    ============================================================ */
+.markdown-body {
+  /* 长文本 / 长 URL / 长单词自适应换行，绝不横向撑出屏幕（flex 容器 min-w-0 配合） */
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
+}
+.markdown-body p,
+.markdown-body li,
+.markdown-body blockquote,
+.markdown-body td,
+.markdown-body th,
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6,
+.markdown-body a {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+/* 代码块 / 表格容器宽度受父约束，内部各自横向滚动 */
+.markdown-body pre { max-width: 100%; }
+.markdown-body table { max-width: 100%; }
 .markdown-body > *:first-child { margin-top: 0; }
 .markdown-body > *:last-child { margin-bottom: 0; }
 .markdown-body p { margin: 0.55em 0; }
