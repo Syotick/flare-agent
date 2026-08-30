@@ -55,15 +55,21 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [tasks, setTasks] = useState<import("./api").TaskDetail[]>([]);
-  // DSH 对齐：工作区（先选工作区，会话按工作区区分）
-  const [currentWorkspace, setCurrentWorkspace] = useState("default");
+  // DSH 对齐：工作区（先选工作区再新建对话；无默认工作区，对话从属工作区）
+  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null);
   const [workspaces, setWorkspaces] = useState<import("./api").Workspace[]>([]);
+  // 每个工作区的对话视图状态缓存：切换工作区保留（不会切走就刷没），切回直接恢复
+  const workspaceCache = useRef<Record<string, { items: Item[]; activeTaskId: string | null; threadId: string; input: string }>>({});
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const lastToolId = useRef<number | null>(null);
   const lastAssistantId = useRef<number | null>(null);
 
   const refreshHistory = () => {
+    if (!currentWorkspace) {
+      setTasks([]); // 未选工作区：不展示任何会话
+      return;
+    }
     listTasks(currentWorkspace).then(setTasks).catch(() => undefined);
   };
 
@@ -270,6 +276,13 @@ export default function App() {
   const send = async (text?: string) => {
     const content = (text ?? input).trim();
     if (!content || running) return;
+    if (!currentWorkspace) {
+      setItems((prev) => [
+        ...prev,
+        { id: nextId++, kind: "status", text: "请先选择或创建工作区，再开始对话", tone: "warn" },
+      ]);
+      return;
+    }
     setRunning(true);
     setInput("");
     // 新任务 = 新回复气泡：重置流式定位，避免 token 追加到上一轮的助手气泡
@@ -334,6 +347,9 @@ export default function App() {
         setItems([]);
         setActiveTaskId(null);
         setRunning(false);
+        if (currentWorkspace) {
+          workspaceCache.current[currentWorkspace] = { items: [], activeTaskId: null, threadId: "", input: "" };
+        }
         const url = new URL(window.location.href);
         url.hash = "";
         window.history.replaceState(null, "", url.toString());
@@ -345,6 +361,10 @@ export default function App() {
   };
 
   const newChat = () => {
+    // 新建对话 = 当前工作区的空会话（缓存同步清空，避免切走切回恢复旧会话）
+    if (currentWorkspace) {
+      workspaceCache.current[currentWorkspace] = { items: [], activeTaskId: null, threadId: "", input: "" };
+    }
     setItems([]);
     setActiveTaskId(null);
     setRunning(false);
@@ -357,21 +377,37 @@ export default function App() {
     window.history.replaceState(null, "", url.toString());
   };
 
-  // DSH 对齐：切换工作区 = 清空当前会话（工作区之间会话互不混淆），会话列表按工作区过滤
+  // DSH 对齐：切换工作区 —— 保存当前工作区视图状态，恢复目标工作区缓存（切换不刷没）；
+  // 无默认工作区：先选/建工作区，对话从属工作区，会话列表按工作区过滤
   const switchWorkspace = (ws: string) => {
     if (!ws || ws === currentWorkspace) return;
+    if (currentWorkspace) {
+      // 保存当前工作区的对话视图状态（items/活动会话/线程/草稿）
+      workspaceCache.current[currentWorkspace] = { items, activeTaskId, threadId, input };
+    }
+    const saved = workspaceCache.current[ws];
+    if (saved) {
+      // 恢复对话视图快照（items/线程/草稿），但不自动重连 SSE——
+      // EventSource 整段重放会与已恢复内容重复；想看完整回放可点侧栏会话
+      setItems(saved.items);
+      setThreadId(saved.threadId);
+      setInput(saved.input);
+      setActiveTaskId(null);
+      setRunning(false);
+    } else {
+      setItems([]);
+      setActiveTaskId(null);
+      setThreadId("");
+      setInput("");
+      setRunning(false);
+    }
     setCurrentWorkspace(ws);
-    setItems([]);
-    setActiveTaskId(null);
-    setRunning(false);
-    setInput("");
     lastAssistantId.current = null;
     lastToolId.current = null;
-    setThreadId("");
     const url = new URL(window.location.href);
     url.hash = "";
     window.history.replaceState(null, "", url.toString());
-    listTasks(ws).then(setTasks).catch(() => setTasks([]));
+    refreshHistory();
     refreshWorkspaces();
   };
 
@@ -411,7 +447,7 @@ export default function App() {
               onSend={() => send()}
               onStop={cancel}
               onKeyDown={onKeyDown}
-              disabled={false}
+              disabled={!currentWorkspace}
               running={running}
             />
           </>

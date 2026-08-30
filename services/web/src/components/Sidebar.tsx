@@ -23,7 +23,7 @@ export default function Sidebar(props: {
   pendingApprovals: number;
   buildTag?: string;
   workspaces: Workspace[];
-  currentWorkspace: string;
+  currentWorkspace: string | null;
   onSwitchWorkspace: (ws: string) => void;
 }) {
   const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate, pendingApprovals, buildTag, workspaces, currentWorkspace, onSwitchWorkspace } = props;
@@ -43,6 +43,13 @@ export default function Sidebar(props: {
     : s === "failed" ? "bg-destructive"
     : s === "budget_exceeded" || s === "awaiting_approval" ? "bg-warning"
     : "bg-muted-foreground";
+
+  // DSH 对齐：无默认工作区 —— 工作区列表不展示 "default"，只列真实创建的工作区；
+  // 当前工作区若尚未持久化（首个会话前），也合成进列表以便高亮展示
+  let wsList = workspaces.filter((w) => w.workspace_id !== "default");
+  if (currentWorkspace && !wsList.some((w) => w.workspace_id === currentWorkspace)) {
+    wsList = [...wsList, { workspace_id: currentWorkspace, task_count: 0, last_used_at: 0 }];
+  }
 
   return (
     <aside
@@ -70,7 +77,7 @@ export default function Sidebar(props: {
         >
           <FolderOpen className="h-3.5 w-3.5 flex-none text-primary" />
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-            {currentWorkspace === "default" ? "默认工作区" : currentWorkspace}
+            {currentWorkspace ?? "选择工作区"}
           </span>
           <ChevronDown className={"h-3.5 w-3.5 flex-none text-muted-foreground transition-transform " + (wsOpen ? "rotate-180" : "")} />
         </button>
@@ -80,10 +87,10 @@ export default function Sidebar(props: {
               <div className="px-2.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
                 工作区
               </div>
-              {workspaces.length === 0 && (
-                <div className="px-2.5 py-1.5 text-xs text-muted-foreground">还没有工作区</div>
+              {wsList.length === 0 && (
+                <div className="px-2.5 py-1.5 text-xs text-muted-foreground">还没有工作区，输入名字新建</div>
               )}
-              {workspaces.map((w) => (
+              {wsList.map((w) => (
                 <button
                   key={w.workspace_id}
                   onClick={() => { onSwitchWorkspace(w.workspace_id); setWsOpen(false); }}
@@ -94,7 +101,7 @@ export default function Sidebar(props: {
                       : "text-muted-foreground hover:bg-muted hover:text-foreground")
                   }
                 >
-                  <span className="flex-1 truncate">{w.workspace_id === "default" ? "默认工作区" : w.workspace_id}</span>
+                  <span className="flex-1 truncate">{w.workspace_id}</span>
                   <span className="flex-none text-[10px] text-muted-foreground/60">{w.task_count}</span>
                 </button>
               ))}
@@ -120,13 +127,17 @@ export default function Sidebar(props: {
         )}
       </div>
 
-      {/* 会话 */}
+      {/* 会话（先选工作区：未选时不展示会话，引导先选/建工作区） */}
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         <div className="flex items-center justify-between px-2">
           <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">会话</span>
-          <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary" title="新建会话" onClick={onNew}>
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          {currentWorkspace ? (
+            <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary" title="新建会话" onClick={onNew}>
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">未选择</span>
+          )}
         </div>
 
         {/* 搜索框 */}
@@ -146,7 +157,13 @@ export default function Sidebar(props: {
           )}
         </div>
 
-        {filtered.length === 0 && (
+        {!currentWorkspace ? (
+          <div className="mx-0.5 mt-1 rounded-xl border border-dashed border-border/70 px-3 py-4 text-center text-xs leading-relaxed text-muted-foreground">
+            请先选择或创建工作区，
+            <br />
+            再开始对话
+          </div>
+        ) : filtered.length === 0 && (
           <div className="px-2.5 py-2 text-xs text-muted-foreground">
             {tasks.length === 0 ? "还没有会话，点 ＋ 新建" : "没有匹配的会话"}
           </div>

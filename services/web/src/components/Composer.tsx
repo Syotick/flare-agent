@@ -11,7 +11,7 @@ export default function Composer(props: {
   disabled: boolean;
   running: boolean;
 }) {
-  const { value, onChange, onSend, onStop, onKeyDown, running } = props;
+  const { value, onChange, onSend, onStop, onKeyDown, disabled, running } = props;
   const [focused, setFocused] = useState(false);
 
   return (
@@ -26,8 +26,8 @@ export default function Composer(props: {
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={running ? "正在执行…" : "给 Flare 发个任务…"}
-          disabled={running}
+          placeholder={disabled ? "请先选择或创建工作区，再开始对话" : running ? "正在执行…" : "给 Flare 发个任务…"}
+          disabled={running || disabled}
           autoComplete="off"
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -50,7 +50,7 @@ export default function Composer(props: {
           ) : (
             <button
               className="gradient-flare flex items-center gap-2 rounded-xl px-5 py-2 text-[13px] font-semibold text-white shadow-[0_3px_16px_rgba(255,122,60,0.35)] transition-all hover:-translate-y-px hover:brightness-110 active:translate-y-0 disabled:pointer-events-none disabled:opacity-40"
-              disabled={!value.trim()}
+              disabled={!value.trim() || disabled}
               onClick={onSend}
             >
               发送
