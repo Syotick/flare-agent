@@ -1,9 +1,9 @@
 import { useState } from "react";
 import {
-  Activity, Brain, Cpu, Database, MessageSquare, Plus, Puzzle, Search, ShieldCheck, Terminal, Trash2, X,
+  Activity, Brain, ChevronDown, Cpu, Database, FolderOpen, MessageSquare, Plus, Puzzle, Search, ShieldCheck, Terminal, Trash2, X,
 } from "lucide-react";
 import { cn, groupByDate, autoTitle } from "../lib/utils";
-import type { TaskDetail } from "../api";
+import type { TaskDetail, Workspace } from "../api";
 import FlareLogo from "./FlareLogo";
 import type { ViewId } from "../App";
 import {
@@ -22,10 +22,15 @@ export default function Sidebar(props: {
   onNavigate: (view: ViewId) => void;
   pendingApprovals: number;
   buildTag?: string;
+  workspaces: Workspace[];
+  currentWorkspace: string;
+  onSwitchWorkspace: (ws: string) => void;
 }) {
-  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate, pendingApprovals, buildTag } = props;
+  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate, pendingApprovals, buildTag, workspaces, currentWorkspace, onSwitchWorkspace } = props;
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
+  const [wsOpen, setWsOpen] = useState(false);
+  const [wsName, setWsName] = useState("");
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -54,6 +59,65 @@ export default function Sidebar(props: {
           <span className="text-gradient text-[15px] font-bold">Flare</span>
           <span className="text-[11px] text-muted-foreground">AI Agent Console</span>
         </div>
+      </div>
+
+      {/* DSH 对齐：工作区选择器（先选工作区，会话按工作区区分） */}
+      <div className="relative flex-none px-0.5">
+        <button
+          onClick={() => setWsOpen(!wsOpen)}
+          className="flex w-full items-center gap-2 rounded-lg border border-border bg-card/50 px-2.5 py-2 text-left transition-colors hover:border-primary/40"
+          title="选择工作区"
+        >
+          <FolderOpen className="h-3.5 w-3.5 flex-none text-primary" />
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+            {currentWorkspace === "default" ? "默认工作区" : currentWorkspace}
+          </span>
+          <ChevronDown className={"h-3.5 w-3.5 flex-none text-muted-foreground transition-transform " + (wsOpen ? "rotate-180" : "")} />
+        </button>
+        {wsOpen && (
+          <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-border bg-card shadow-2xl backdrop-blur-xl">
+            <div className="max-h-56 overflow-y-auto p-1">
+              <div className="px-2.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                工作区
+              </div>
+              {workspaces.length === 0 && (
+                <div className="px-2.5 py-1.5 text-xs text-muted-foreground">还没有工作区</div>
+              )}
+              {workspaces.map((w) => (
+                <button
+                  key={w.workspace_id}
+                  onClick={() => { onSwitchWorkspace(w.workspace_id); setWsOpen(false); }}
+                  className={
+                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] transition-colors " +
+                    (w.workspace_id === currentWorkspace
+                      ? "bg-primary/10 text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground")
+                  }
+                >
+                  <span className="flex-1 truncate">{w.workspace_id === "default" ? "默认工作区" : w.workspace_id}</span>
+                  <span className="flex-none text-[10px] text-muted-foreground/60">{w.task_count}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 border-t border-border p-1.5">
+              <Plus className="h-3 w-3 flex-none text-muted-foreground" />
+              <input
+                value={wsName}
+                onChange={(e) => setWsName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && wsName.trim()) {
+                    onSwitchWorkspace(wsName.trim());
+                    setWsName("");
+                    setWsOpen(false);
+                  }
+                }}
+                placeholder="新建工作区，回车确认…"
+                autoComplete="off"
+                className="h-7 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 会话 */}

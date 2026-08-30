@@ -104,3 +104,60 @@ def test_delete_task() -> None:
         assert client.delete(f"/v1/tasks/{tid}").status_code == 204
         assert client.get(f"/v1/tasks/{tid}").status_code == 404
         assert client.delete(f"/v1/tasks/{tid}").status_code == 404
+
+
+# ---------- DSH 对齐：工作区（先选工作区，会话按工作区区分） ----------
+
+
+def test_create_task_with_workspace() -> None:
+    """创建任务可指定工作区；详情回传 workspace_id（默认 default）。"""
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        created = client.post(
+            "/v1/tasks", json={"task_input": "hi", "workspace_id": "proj-alpha"}
+        ).json()
+        assert created["workspace_id"] == "proj-alpha"
+        done = _wait_done(client, created["task_id"])
+    assert done["workspace_id"] == "proj-alpha"
+
+
+def test_create_task_default_workspace() -> None:
+    """未指定 workspace_id 时归入默认工作区。"""
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        created = client.post("/v1/tasks", json={"task_input": "hi"}).json()
+    assert created["workspace_id"] == "default"
+
+
+def test_list_tasks_filter_by_workspace() -> None:
+    """?workspace= 只返回该工作区会话；不带参数返回全量（兼容旧客户端）。"""
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        a = client.post("/v1/tasks", json={"task_input": "in A", "workspace_id": "ws-a"}).json()
+        b = client.post("/v1/tasks", json={"task_input": "in B", "workspace_id": "ws-b"}).json()
+        _wait_done(client, a["task_id"])
+        _wait_done(client, b["task_id"])
+        only_a = client.get("/v1/tasks?workspace=ws-a").json()
+        only_b = client.get("/v1/tasks?workspace=ws-b").json()
+        all_tasks = client.get("/v1/tasks").json()
+    ids_a = {t["task_id"] for t in only_a}
+    ids_b = {t["task_id"] for t in only_b}
+    assert a["task_id"] in ids_a and b["task_id"] not in ids_a
+    assert b["task_id"] in ids_b and a["task_id"] not in ids_b
+    assert a["task_id"] in {t["task_id"] for t in all_tasks}
+    assert b["task_id"] in {t["task_id"] for t in all_tasks}
+
+
+def test_workspaces_aggregate() -> None:
+    """GET /v1/workspaces 聚合工作区（含默认），带会话计数。"""
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        a = client.post("/v1/tasks", json={"task_input": "x", "workspace_id": "ws-alpha"}).json()
+        _wait_done(client, a["task_id"])
+        ws = client.get("/v1/workspaces").json()
+    by_id = {w["workspace_id"]: w for w in ws}
+    assert "ws-alpha" in by_id
+    assert by_id["ws-alpha"]["task_count"] >= 1
+    assert "default" in by_id  # 始终包含默认工作区
+    # 按最近使用倒序（default 无会话时排在 ws-alpha 之后）
+    assert ws[0]["workspace_id"] == "ws-alpha"

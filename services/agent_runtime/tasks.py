@@ -53,6 +53,7 @@ class TaskRecord:
     result: dict[str, Any] | None = None
     error: str | None = None
     tenant_id: str = "default"  # M5：多租户隔离边界
+    workspace_id: str = "default"  # DSH 对齐：工作区（会话命名空间，Web 先选工作区再新建对话）
 
     @property
     def done(self) -> bool:
@@ -70,6 +71,7 @@ class TaskRecord:
             "result": self.result,
             "error": self.error,
             "tenant_id": self.tenant_id,
+            "workspace_id": self.workspace_id,
         }
 
 
@@ -125,6 +127,7 @@ class TaskManager:
         thread_id: str | None = None,
         max_steps: int = 5,
         tenant_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> TaskRecord:
         """登记任务并后台执行，立即返回（L1：请求不被任务耗时阻塞）。"""
         task = TaskRecord(
@@ -133,6 +136,7 @@ class TaskManager:
             task_input=task_input,
             max_steps=max_steps,
             tenant_id=tenant_id or get_tenant_id(),
+            workspace_id=workspace_id or "default",
         )
         self._tasks[task.task_id] = task
         await self._store.create(task)
@@ -325,6 +329,31 @@ class TaskManager:
             await self._store.delete(task_id)
         return removed
 
-    def recent(self, limit: int = 200) -> list[TaskRecord]:
+    def recent(self, limit: int = 200, workspace: str | None = None) -> list[TaskRecord]:
+        """最近任务列表；workspace 非空时只返回该工作区的会话（Web 先选工作区再区分对话）。"""
         recs = sorted(self._tasks.values(), key=lambda t: t.created_at, reverse=True)
+        if workspace:
+            recs = [t for t in recs if t.workspace_id == workspace]
         return recs[:limit]
+
+    async def workspaces(self, limit: int = 200) -> list[dict]:
+        """聚合工作区列表（含默认）：id + 会话数 + 最近使用时间。
+
+        基于持久化 store.list()（重启后可聚合历史会话）；进程内缓存可能缺失
+        重启前的任务，store 是唯一权威来源。结果按最近使用倒序。
+        """
+        counts: dict[str, int] = {}
+        last: dict[str, float] = {}
+        for t in await self._store.list(limit):
+            ws = t.workspace_id or "default"
+            counts[ws] = counts.get(ws, 0) + 1
+            last[ws] = max(last.get(ws, 0.0), t.created_at)
+        # 始终包含默认工作区（用户可能一个会话都没建）
+        for ws in set(counts) | {"default"}:
+            last.setdefault(ws, 0.0)
+        rows = [
+            {"workspace_id": ws, "task_count": counts.get(ws, 0), "last_used_at": last[ws]}
+            for ws in set(counts) | {"default"}
+        ]
+        rows.sort(key=lambda r: r["last_used_at"], reverse=True)
+        return rows

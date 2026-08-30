@@ -102,9 +102,19 @@ class SqliteTaskStore(TaskStore):
                     status TEXT NOT NULL,
                     created_at REAL NOT NULL,
                     tenant_id TEXT NOT NULL DEFAULT 'default',
+                    workspace_id TEXT NOT NULL DEFAULT 'default',
                     result TEXT,
                     error TEXT,
                     events TEXT)""")
+            # DSH 对齐：老库（无 workspace_id 列）做 ADD COLUMN 兼容迁移
+            cols = {
+                r["name"]
+                for r in await (await self._conn.execute("PRAGMA table_info(tasks)")).fetchall()
+            }
+            if "workspace_id" not in cols:
+                await self._conn.execute(
+                    "ALTER TABLE tasks ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'default'"
+                )
             await self._conn.commit()
         return self._conn
 
@@ -116,7 +126,8 @@ class SqliteTaskStore(TaskStore):
         rec = _record_to_dict(task)
         await db.execute(
             "INSERT OR REPLACE INTO tasks(task_id, thread_id, task_input, max_steps, status,"
-            " created_at, tenant_id, result, error, events) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            " created_at, tenant_id, workspace_id, result, error, events)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (
                 rec["task_id"],
                 rec["thread_id"],
@@ -125,6 +136,7 @@ class SqliteTaskStore(TaskStore):
                 rec["status"],
                 rec["created_at"],
                 rec.get("tenant_id", "default"),
+                rec.get("workspace_id", "default"),
                 json.dumps(rec["result"], ensure_ascii=False, default=str),
                 rec.get("error"),
                 json.dumps(rec["events"], ensure_ascii=False, default=str),

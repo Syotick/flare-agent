@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createTask, deleteTask, getTask, listApprovals, listTasks } from "./api";
+import { createTask, deleteTask, getTask, listApprovals, listTasks, listWorkspaces } from "./api";
 import ApiView from "./components/ApiView";
 import ApprovalsView from "./components/ApprovalsView";
 import CapabilitiesView from "./components/CapabilitiesView";
@@ -55,17 +55,25 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [tasks, setTasks] = useState<import("./api").TaskDetail[]>([]);
+  // DSH 对齐：工作区（先选工作区，会话按工作区区分）
+  const [currentWorkspace, setCurrentWorkspace] = useState("default");
+  const [workspaces, setWorkspaces] = useState<import("./api").Workspace[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const lastToolId = useRef<number | null>(null);
   const lastAssistantId = useRef<number | null>(null);
 
   const refreshHistory = () => {
-    listTasks().then(setTasks).catch(() => undefined);
+    listTasks(currentWorkspace).then(setTasks).catch(() => undefined);
+  };
+
+  const refreshWorkspaces = () => {
+    listWorkspaces().then(setWorkspaces).catch(() => undefined);
   };
 
   useEffect(() => {
     refreshHistory();
+    refreshWorkspaces();
   }, []);
 
   // F1.3 审批中心：轮询待审批数，驱动侧栏徽标（有审批时审批中心也会自刷新）
@@ -269,7 +277,7 @@ export default function App() {
     lastToolId.current = null;
     setItems((prev) => [...prev, { id: nextId++, kind: "user", text: content }]);
     try {
-      const created = await createTask(content, MAX_STEPS, threadId || undefined);
+      const created = await createTask(content, MAX_STEPS, threadId || undefined, currentWorkspace);
       // 同步服务端生成的线程：同会话后续消息自动续聊（上下文连续，无需用户关心 thread_id）
       setThreadId(created.thread_id);
       rememberTask(created.task_id);
@@ -349,6 +357,24 @@ export default function App() {
     window.history.replaceState(null, "", url.toString());
   };
 
+  // DSH 对齐：切换工作区 = 清空当前会话（工作区之间会话互不混淆），会话列表按工作区过滤
+  const switchWorkspace = (ws: string) => {
+    if (!ws || ws === currentWorkspace) return;
+    setCurrentWorkspace(ws);
+    setItems([]);
+    setActiveTaskId(null);
+    setRunning(false);
+    setInput("");
+    lastAssistantId.current = null;
+    lastToolId.current = null;
+    setThreadId("");
+    const url = new URL(window.location.href);
+    url.hash = "";
+    window.history.replaceState(null, "", url.toString());
+    listTasks(ws).then(setTasks).catch(() => setTasks([]));
+    refreshWorkspaces();
+  };
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -370,6 +396,9 @@ export default function App() {
           onNavigate={setView}
           pendingApprovals={pendingApprovals}
           buildTag={BUILD_TAG}
+          workspaces={workspaces}
+          currentWorkspace={currentWorkspace}
+          onSwitchWorkspace={switchWorkspace}
         />
       </div>
       <main className="flex min-w-0 flex-1 flex-col">

@@ -24,6 +24,7 @@ from agent_runtime.routes.model import build_model_router
 from agent_runtime.routes.openai_compat import build_openai_router
 from agent_runtime.routes.ops import build_ops_router
 from agent_runtime.routes.tasks import build_tasks_router
+from agent_runtime.routes.workspaces import build_workspaces_router
 from agent_runtime.task_store import (
     InMemoryTaskStore,
     RedisTaskStore,
@@ -228,6 +229,9 @@ def create_app(
 
     # M2-4c: 任务 API（graph + checkpointer 接入 HTTP，端到端回路）
     app.include_router(build_tasks_router(task_manager))
+
+    # DSH 对齐: 工作区 API（先选工作区，会话按工作区区分）
+    app.include_router(build_workspaces_router(task_manager))
 
     # F9.3: OpenAI 兼容 API（任何 OpenAI SDK/LiteLLM/curl 直接调用；FLARE_API_KEY 可选认证）
     app.include_router(build_openai_router(task_manager, api_key=settings.api_key))

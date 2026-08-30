@@ -9,6 +9,7 @@ export interface TaskCreated {
   task_id: string;
   thread_id: string;
   status: string;
+  workspace_id: string;
 }
 
 export interface StepEvent {
@@ -27,6 +28,7 @@ export interface TaskDetail {
   event_count: number;
   result: TaskResult | null;
   error: string | null;
+  workspace_id: string;
 }
 
 async function json<T>(resp: Response): Promise<T> {
@@ -44,13 +46,19 @@ async function json<T>(resp: Response): Promise<T> {
 export async function createTask(
   taskInput: string,
   maxSteps = 5,
-  threadId?: string
+  threadId?: string,
+  workspaceId?: string
 ): Promise<TaskCreated> {
   return json<TaskCreated>(
     await fetch("/v1/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task_input: taskInput, max_steps: maxSteps, thread_id: threadId }),
+      body: JSON.stringify({
+        task_input: taskInput,
+        max_steps: maxSteps,
+        thread_id: threadId,
+        workspace_id: workspaceId,
+      }),
     })
   );
 }
@@ -59,8 +67,21 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
   return json<TaskDetail>(await fetch("/v1/tasks/" + taskId));
 }
 
-export async function listTasks(): Promise<TaskDetail[]> {
-  return json<TaskDetail[]>(await fetch("/v1/tasks"));
+export async function listTasks(workspace?: string): Promise<TaskDetail[]> {
+  const q = workspace ? "?workspace=" + encodeURIComponent(workspace) : "";
+  return json<TaskDetail[]>(await fetch("/v1/tasks" + q));
+}
+
+// ---------- DSH 对齐：工作区（先选工作区，会话按工作区区分） ----------
+
+export interface Workspace {
+  workspace_id: string;
+  task_count: number;
+  last_used_at: number;
+}
+
+export async function listWorkspaces(): Promise<Workspace[]> {
+  return json<Workspace[]>(await fetch("/v1/workspaces"));
 }
 
 export async function deleteTask(taskId: string): Promise<void> {

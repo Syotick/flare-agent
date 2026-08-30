@@ -23,6 +23,7 @@ class TaskCreate(BaseModel):
     task_input: str = Field(min_length=1, max_length=10000)
     thread_id: str | None = None
     max_steps: int = Field(default=5, ge=1, le=50)
+    workspace_id: str = Field(default="default", min_length=1, max_length=64)
 
 
 def build_tasks_router(manager: TaskManager) -> APIRouter:
@@ -31,13 +32,22 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
     @router.post("/tasks", status_code=202)
     async def create_task(body: TaskCreate) -> dict[str, Any]:
         task = await manager.create(
-            body.task_input, thread_id=body.thread_id, max_steps=body.max_steps
+            body.task_input,
+            thread_id=body.thread_id,
+            max_steps=body.max_steps,
+            workspace_id=body.workspace_id,
         )
-        return {"task_id": task.task_id, "thread_id": task.thread_id, "status": task.status}
+        return {
+            "task_id": task.task_id,
+            "thread_id": task.thread_id,
+            "status": task.status,
+            "workspace_id": task.workspace_id,
+        }
 
     @router.get("/tasks")
-    async def list_tasks() -> list[dict[str, Any]]:
-        return [t.to_dict() for t in manager.recent()]
+    async def list_tasks(workspace: str | None = None) -> list[dict[str, Any]]:
+        """会话列表；?workspace=<id> 时只返回该工作区会话（DSH 对齐：先选工作区再区分对话）。"""
+        return [t.to_dict() for t in manager.recent(workspace=workspace)]
 
     @router.get("/tasks/{task_id}")
     async def get_task(task_id: str) -> dict[str, Any]:
