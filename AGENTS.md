@@ -19,7 +19,8 @@
 6. 阿里云 OSS 存对象
 7. 强企业级技术栈，云原生
 
-## 已确认决策（2026-08-27 / 2026-08-28 / 2026-08-29）
+## 已确认决策（2026-08-27 / 2026-08-28 / 2026-08-29 / 2026-08-30）
+- 2026-08-30：**L6 token 级流式打字机已交付**（参照 nova-agent 生效，commit c0ce385 + learning/18）——actor 用 llm.stream（**stream 不带 tools** 规避 OpenCode Zen 对 stream+tools 的断连）+ 异常降级 chat(带 tools) 兜底 + RetryProvider.stream 连接级重试 + 模型 JSON 决策解析后 answer 拆段回放 on_token→SSE {"type":"token"} 事件（干净文本）+ 前端打字机（StreamText 单调推进不随 text 重置 + step(final) 不置 done + result 延迟 done + 会话切换重置流式 refs）；curl SSE + Playwright 真实 Chrome 逐字打出验证，218 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：模型配置与供应商接入已交付——M4 wiring 修复（create_app 真正传 llm 给 TaskManager，配了 key 才生效，之前永远 mock）+ ModelConfigStore（env>JSON>settings 优先级、脱敏、key 只在服务端 0600）+ /v1/settings/model GET/PUT/presets/test + 控制台「模型」页（预设下拉/保存并生效/测试连接/清除 key）+ 保存热生效（set_llm，新建任务生效）；Anthropic 原生协议（/v1/messages）+ 模型页 CC Switch 风格重构（供应商卡片+模型 chips）+ 自定义供应商多配置（profiles CRUD + 前端「我的供应商」+ 模型目录多模型 + 请求路径展示）；218 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：审批进阶已交付（F1.3/F2.4）——TOFU 首用信任（同作用域获批后免 interrupt 直行）+ ApprovalBackend 抽象（Local/Redis 跨节点轮询唤醒 + 信任集共享 + fail-fast）+ ApprovalsView 审批中心（历史台账/集中决策/待审批徽标）；200 测试全绿。下一步 = 云部署 + 压测实测容量
 - 2026-08-29：人机协作审批 + 工具权限分级已交付（F1.3/F2.4）——Tool.permission 分级 + 编排层审批门（graph interrupt → awaiting_approval → REST decide → Command(resume)）+ 审批 API + Web 审批卡片 + SSE approval 事件 + 超时自动拒绝；190 测试全绿。下一步 = 云部署 + 压测实测容量
@@ -38,6 +39,7 @@
 - **Web 控制台**：KnowledgeBaseView(入库/列表/删除/hybrid检索/RAG评测proxy) + MemoryView(事实CRUD/向量检索/上下文块) + App view 切换 + Sidebar 导航可点 + api.ts KB/Memory 客户端；npm run build → dist(gitignore) 由后端 8000 挂载，访问 http://127.0.0.1:8000/（非 3080）。坑：长 heredoc 写 TSX 会截断污染，分段<100行；noUnusedLocals 删未用导入。
 - **M5 云原生代码层**：tenant(头→contextvar→TaskRecord.tenant_id)+task_store(InMemory/Sqlite/Redis,FLARE_TASK_STORE)+PgVectorStore(503守卫)+checkpoint生产AsyncPostgresSaver(长连接)+reconcile双写对账+otel(FLARE_OTEL_ENDPOINT)+infra/Dockerfile+k8s 7清单；learning/05更新。坑：aiosqlite需row_factory=Row；AsyncPostgresSaver.from_conn_string是async CM；_save不复活已删任务；MemorySaver做测试checkpointer。
 - **M4 模型网关+沙箱**：OpenAICompatibleProvider（tool_calls 映射+tool_call_id 配对+SSE）+ RetryProvider + build_provider(mock|openai, FLARE_MODEL_NAME)；graph 传 tools；sandbox LocalProcessSandbox/DockerSandbox(503)+sandbox_run 工具+registry 接线+TaskManager.close；test_provider/test_sandbox 17 个；learning/10。坑：test_graph provider 补 tools 参数；step_count=工具执行次数；同步测试用 time.sleep。
+- **L6 token 级流式打字机（2026-08-30 交付）**：actor 改 llm.stream 收集决策（stream 不带 tools 规避上游 OpenCode Zen 的 stream+tools 断连）+ 异常降级 chat 兜底 + RetryProvider.stream 连接级重试；JSON 决策内部解析后把 answer 拆段回放 on_token → SSE {"type":"token"} 干净事件；前端 token 实时追加 + StreamText 单调推进 + result 延迟 done + 会话切换重置流式 refs；curl SSE + Playwright 逐字打出验证 + 218 测试全绿；learning/18。
 - **M3c RAG 评测**：eval/{metrics(recall@k/precision@k/hit_rate/MRR/NDCG),dataset(内置中文集),runner(多策略对比),ragas(代理判定/LLMJudge fail-fast)} + hybrid(RRF) + rerank + kb.search(strategy) + /v1/kb/eval + demo_eval.py + learning/09。测试 16 个。坑：rrf 首次赋值；E501 CJK 宽2；demo 用独立临时库。
 - **learning 三架构文档**：06 功能架构（功能域地图/功能清单带 FR/核心链路/依赖/NFR）；07 业务架构（价值主张/能力地图/流程/业务对象/角色 RBAC/多租户/运营）；08 技术架构（技术栈/LangGraph ReAct 机制/数据架构 dev→prod 演进/集成/部署高可用/安全/权衡）。教学风格"实践+真理"，三层文档互相引用。
 - **learning 文档扩展**：04 进阶开发指南（开发部分：分层依赖方向/加工具/加API/接模型/换存储/测试纪律；含"假抽象"警示与开发→生产切换矩阵）；05 生产部署指南（部署部分：阿里云 ACK/OSS/PG(pgvector)/Redis/OTel/多租户/百万并发容量/SLO/回滚，✅实现 vs ⏳M5/M6 标注，含 Dockerfile 示例与上线清单）。配套修复 pyproject packages.find 补 memory*（否则生产的 wheel 缺 memory 包）。
