@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ShieldAlert, ShieldCheck, X } from "lucide-react";
 import { decideApproval, type ApprovalInfo } from "../api";
-import { cn } from "../lib/utils";
+import { cn, relTime } from "../lib/utils";
 import type { Item } from "../types";
 import FlareLogo from "./FlareLogo";
+import MarkdownView from "./MarkdownView";
 import ThinkingOrb from "./ThinkingOrb";
 import ToolCallCard from "./ToolCallCard";
 import WelcomePanel from "./WelcomePanel";
@@ -32,30 +33,70 @@ function StreamText({ text, done }: { text: string; done: boolean }) {
   );
 }
 
-function UserBubble({ text }: { text: string }) {
+function TimeStamp({ ts }: { ts?: number }) {
+  if (!ts) return null;
+  return <div className="mt-1 text-[10px] text-muted-foreground/50">{relTime(ts)}</div>;
+}
+
+function UserBubble({ text, ts }: { text: string; ts?: number }) {
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-2.5 text-[14px] leading-relaxed">
-        {text}
+    <div className="flex animate-fade-in-up justify-end">
+      <div className="max-w-[82%]">
+        <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-sm border border-primary/25 bg-gradient-to-br from-primary/18 via-accent/12 to-primary/8 px-4 py-2.5 text-[14px] leading-relaxed text-foreground shadow-[0_2px_14px_rgba(255,122,60,0.12)] backdrop-blur-sm">
+          {text}
+        </div>
+        <TimeStamp ts={ts} />
       </div>
     </div>
   );
 }
 
-function AssistantBubble({ text, done }: { text: string; done: boolean }) {
+function AssistantBubble({ text, done, ts }: { text: string; done: boolean; ts?: number }) {
   return (
-    <div className="flex items-start gap-2.5">
-      <FlareLogo size={22} animated={!done} className="mt-1" />
-      <div className="whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm px-1 py-0.5 text-[14px] leading-relaxed">
-        <StreamText text={text} done={done} />
+    <div className="flex animate-fade-in-up items-start gap-3">
+      <div className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-primary/25 to-accent/15 ring-1 ring-primary/25 shadow-[0_2px_12px_rgba(255,122,60,0.25)]">
+        <FlareLogo size={18} animated={!done} />
+      </div>
+      <div className="min-w-0 flex-1 space-y-1 pt-0.5">
+        {done ? (
+          <div className="animate-fade-in text-[14.5px] leading-[1.75]">
+            <MarkdownView text={text} />
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap break-words text-[14.5px] leading-[1.75] text-foreground">
+            <StreamText text={text} done={done} />
+          </div>
+        )}
+        <TimeStamp ts={ts} />
       </div>
     </div>
+  );
+}
+
+// 思考态阶段文字轮换：思考 → 分析 → 调用工具 → 执行（与 ThinkingOrb 联动）
+function ThinkingStatus() {
+  const [i, setI] = useState(0);
+  const labels = ["正在思考…", "分析任务…", "调用工具…", "执行中…"];
+  useEffect(() => {
+    const t = window.setInterval(() => setI((v) => (v + 1) % labels.length), 2200);
+    return () => window.clearInterval(t);
+  }, []);
+  return (
+    <span key={i} className="animate-fade-in">
+      {labels[i]}
+    </span>
   );
 }
 
 function StatusLine({ text, tone }: { text: string; tone: "info" | "warn" | "error" }) {
   return (
-    <div className={cn("text-xs", tone === "error" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-muted-foreground")}>
+    <div
+      className={cn(
+        "flex animate-fade-in items-center gap-1.5 px-1 text-[11.5px]",
+        tone === "error" ? "text-destructive" : tone === "warn" ? "text-warning" : "text-muted-foreground"
+      )}
+    >
+      <span className={cn("h-1 w-1 flex-none rounded-full", tone === "error" ? "bg-destructive" : tone === "warn" ? "bg-warning" : "bg-muted-foreground/50")} />
       {text}
     </div>
   );
@@ -91,7 +132,7 @@ function ApprovalCard({ approval }: { approval: ApprovalInfo }) {
   };
 
   return (
-    <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
+    <div className="animate-scale-in rounded-xl border border-warning/30 bg-warning/5 p-3">
       <div className="flex items-center gap-2">
         <ShieldAlert className="h-4 w-4 text-warning" />
         <span className="text-[13px] font-semibold">需要审批</span>
@@ -138,12 +179,12 @@ function ApprovalCard({ approval }: { approval: ApprovalInfo }) {
 function renderItem(it: Item) {
   switch (it.kind) {
     case "user":
-      return <UserBubble key={it.id} text={it.text} />;
+      return <UserBubble key={it.id} text={it.text} ts={it.ts} />;
     case "assistant":
-      return <AssistantBubble key={it.id} text={it.msg.text} done={it.msg.done} />;
+      return <AssistantBubble key={it.id} text={it.msg.text} done={it.msg.done} ts={it.ts} />;
     case "tool":
       return (
-        <ToolCallCard key={it.id} name={it.name} args={it.args} status={it.status} result={it.result} />
+        <ToolCallCard key={it.id} name={it.name} args={it.args} status={it.status} result={it.result} ts={it.ts} />
       );
     case "status":
       return <StatusLine key={it.id} text={it.text} tone={it.tone} />;
@@ -163,12 +204,12 @@ export default function ChatView({ items, running, onPick }: { items: Item[]; ru
       {!hasContent ? (
         <WelcomePanel onPick={onPick} />
       ) : (
-        <div className="mx-auto flex w-full max-w-[820px] flex-col gap-3 px-6 py-6 pb-8">
+        <div className="mx-auto flex w-full max-w-[820px] flex-col gap-5 px-6 py-6 pb-8">
           {items.map((it) => renderItem(it))}
           {running && (
-            <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-              <ThinkingOrb active size={16} />
-              <span>思考中…</span>
+            <div className="flex animate-fade-in items-center gap-2.5 py-1 text-[13px] text-muted-foreground">
+              <ThinkingOrb active size={18} />
+              <ThinkingStatus />
             </div>
           )}
           <div ref={endRef} />

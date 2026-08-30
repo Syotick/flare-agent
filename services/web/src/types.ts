@@ -13,8 +13,8 @@ export interface AssistantMsg {
 }
 
 export type Item =
-  | { id: number; kind: "user"; text: string }
-  | { id: number; kind: "assistant"; msg: AssistantMsg }
+  | { id: number; kind: "user"; text: string; ts?: number }
+  | { id: number; kind: "assistant"; msg: AssistantMsg; ts?: number }
   | {
       id: number;
       kind: "tool";
@@ -22,9 +22,10 @@ export type Item =
       args: Record<string, unknown>;
       status: "running" | "done";
       result?: ToolResult;
+      ts?: number;
     }
-  | { id: number; kind: "status"; text: string; tone: "info" | "warn" | "error" }
-  | { id: number; kind: "approval"; approval: ApprovalInfo };
+  | { id: number; kind: "status"; text: string; tone: "info" | "warn" | "error"; ts?: number }
+  | { id: number; kind: "approval"; approval: ApprovalInfo; ts?: number };
 
 export interface Conversation {
   taskId?: string;

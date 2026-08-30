@@ -19,6 +19,8 @@ declare const __BUILD_TIME__: string;
 const BUILD_TAG = typeof __BUILD_TIME__ !== "undefined" ? __BUILD_TIME__.slice(0, 19).replace("T", " ") : "";
 
 let nextId = 1;
+// 实时消息时间戳（秒）：新会话消息显示，历史回放（无 ts）不显示，保持干净
+const nowTs = () => Math.floor(Date.now() / 1000);
 
 interface ResultPayload {
   result: { status: string; output: string; step_count: number; message_count: number } | null;
@@ -143,7 +145,7 @@ export default function App() {
         } else {
           const id = nextId++;
           lastAssistantId.current = id;
-          setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: tok, done: false } }]);
+          setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: tok, done: false }, ts: nowTs() }]);
         }
         return;
       }
@@ -190,7 +192,7 @@ export default function App() {
           } else {
             const id = nextId++;
             lastAssistantId.current = id;
-            setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: actor.output, done: false } }]);
+            setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: actor.output, done: false }, ts: nowTs() }]);
           }
         }
       }
@@ -228,7 +230,7 @@ export default function App() {
         // 兜底：token/final 均未渲染时，用 result 完整输出显示回复
         const id = nextId++;
         lastAssistantId.current = id;
-        setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: data.result!.output, done: true } }]);
+        setItems((prev) => [...prev, { id, kind: "assistant", msg: { text: data.result!.output, done: true }, ts: nowTs() }]);
       }
       if (data) {
         setItems((prev) => [
@@ -288,7 +290,7 @@ export default function App() {
     // 新任务 = 新回复气泡：重置流式定位，避免 token 追加到上一轮的助手气泡
     lastAssistantId.current = null;
     lastToolId.current = null;
-    setItems((prev) => [...prev, { id: nextId++, kind: "user", text: content }]);
+    setItems((prev) => [...prev, { id: nextId++, kind: "user", text: content, ts: nowTs() }]);
     try {
       const created = await createTask(content, MAX_STEPS, threadId || undefined, currentWorkspace);
       // 同步服务端生成的线程：同会话后续消息自动续聊（上下文连续，无需用户关心 thread_id）
