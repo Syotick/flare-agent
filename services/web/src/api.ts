@@ -22,6 +22,7 @@ export interface TaskDetail {
   task_id: string;
   thread_id: string;
   task_input: string;
+  title: string | null; // 会话重命名显示名（None=用 task_input 自动标题）
   status: string;
   created_at: number;
   step_count: number;
@@ -122,6 +123,26 @@ export async function deleteTask(taskId: string): Promise<void> {
       body?.detail?.message || "删除失败 (HTTP " + resp.status + ")";
     throw new Error(msg);
   }
+}
+
+/** 会话重命名（DSH 对齐：只改显示名，不改原始输入）。 */
+export async function renameTask(taskId: string, title: string): Promise<TaskDetail> {
+  return json<TaskDetail>(
+    await fetch("/v1/tasks/" + taskId, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    })
+  );
+}
+
+/** 删除工作区下全部会话（DSH 对齐：工作区=会话命名空间，不删磁盘目录）。 */
+export async function deleteWorkspace(workspaceId: string): Promise<{ deleted: number }> {
+  return json<{ deleted: number }>(
+    await fetch("/v1/workspaces/" + encodeURIComponent(workspaceId), {
+      method: "DELETE",
+    })
+  );
 }
 
 

@@ -42,4 +42,14 @@ def build_workspaces_router(manager: TaskManager) -> APIRouter:
         """在 path 下创建子目录（DSH host.createDirectory）；返回新目录绝对路径。"""
         return {"path": create_directory(body.path, body.name)}
 
+    @router.delete("/workspaces/{workspace_id:path}")
+    async def delete_workspace(workspace_id: str) -> dict[str, Any]:
+        """删除工作区下全部会话（DSH 对齐：工作区=会话命名空间，不删磁盘目录）。
+
+        workspace_id 是服务器目录路径，用 {path} 转换器容纳 / 与 \\；
+        返回删除的会话数，前端刷新工作区/会话列表。
+        """
+        deleted = await manager.delete_workspace(workspace_id)
+        return {"workspace_id": workspace_id, "deleted": deleted}
+
     return router

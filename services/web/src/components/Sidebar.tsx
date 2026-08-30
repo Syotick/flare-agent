@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Activity, Brain, ChevronDown, Cpu, Database, FolderOpen, MessageSquare, Plus, Puzzle, Search, ShieldCheck, Terminal, Trash2, X,
+  Activity, Brain, ChevronDown, Cpu, Database, FolderOpen, MessageSquare, MoreHorizontal, Pencil, Plus, Puzzle, Search, ShieldCheck, Terminal, Trash2, X,
 } from "lucide-react";
 import { cn, groupByDate, autoTitle, workspaceLabel } from "../lib/utils";
 import type { TaskDetail, Workspace } from "../api";
@@ -18,6 +18,8 @@ export default function Sidebar(props: {
   onPick: (taskId: string) => void;
   onNew: () => void;
   onDelete: (taskId: string) => void;
+  onRename: (taskId: string, title: string) => void;
+  onDeleteWorkspace: (ws: string) => void;
   running: boolean;
   view: ViewId;
   onNavigate: (view: ViewId) => void;
@@ -27,10 +29,15 @@ export default function Sidebar(props: {
   currentWorkspace: string | null;
   onSwitchWorkspace: (ws: string) => void;
 }) {
-  const { tasks, activeTaskId, onPick, onNew, onDelete, running, view, onNavigate, pendingApprovals, buildTag, workspaces, currentWorkspace, onSwitchWorkspace } = props;
+  const { tasks, activeTaskId, onPick, onNew, onDelete, onRename, onDeleteWorkspace, running, view, onNavigate, pendingApprovals, buildTag, workspaces, currentWorkspace, onSwitchWorkspace } = props;
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
+  const [rename, setRename] = useState<TaskDetail | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [wsConfirm, setWsConfirm] = useState<Workspace | null>(null);
   const [wsOpen, setWsOpen] = useState(false);
+  // 会话行操作菜单（DSH 对齐：hover 出菜单按钮 → 重命名/删除）
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   // DSH 对齐：添加/选择工作区 = 打开应用内目录浏览器（无"输入名字"，与 DSH 一致）
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -107,11 +114,11 @@ export default function Sidebar(props: {
                 <div className="px-2.5 py-1.5 text-xs text-muted-foreground">还没有工作区，打开文件夹新建</div>
               )}
               {wsList.map((w) => (
-                <button
+                <div
                   key={w.workspace_id}
                   onClick={() => { onSwitchWorkspace(w.workspace_id); setWsOpen(false); }}
                   className={
-                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] transition-colors " +
+                    "group flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12.5px] transition-colors " +
                     (w.workspace_id === currentWorkspace
                       ? "bg-primary/10 text-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground")
@@ -119,7 +126,14 @@ export default function Sidebar(props: {
                 >
                   <span className="flex-1 truncate" title={w.workspace_id}>{workspaceLabel(w.workspace_id)}</span>
                   <span className="flex-none text-[10px] text-muted-foreground/60">{w.task_count}</span>
-                </button>
+                  <button
+                    className="flex-none rounded-md p-0.5 text-muted-foreground/70 opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
+                    title="删除工作区（清空其会话，不删目录）"
+                    onClick={(e) => { e.stopPropagation(); setWsConfirm(w); setWsOpen(false); }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </div>
             <div className="border-t border-border p-1.5">
@@ -184,23 +198,41 @@ export default function Sidebar(props: {
               <div
                 key={t.task_id}
                 className={cn(
-                  "group flex cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2.5 py-2 text-[13px] text-muted-foreground transition-all hover:translate-x-0.5 hover:bg-muted hover:text-foreground",
+                  "group relative flex cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2.5 py-2 text-[13px] text-muted-foreground transition-all hover:translate-x-0.5 hover:bg-muted hover:text-foreground",
                   t.task_id === activeTaskId && "gradient-flare-soft border-primary/20 text-foreground"
                 )}
                 onClick={() => onPick(t.task_id)}
               >
                 <MessageSquare className="h-3 w-3 flex-none opacity-70" />
-                <span className="flex-1 truncate">{autoTitle(t.task_input)}</span>
+                <span className="flex-1 truncate">{t.title || autoTitle(t.task_input)}</span>
                 <span className="hidden items-center gap-1 group-hover:flex">
                   <span className={cn("h-1.5 w-1.5 rounded-full", statusColor(t.status), t.status === "running" && "animate-pulse")} />
                   <button
-                    className="rounded-md p-1 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-                    title="删除会话"
-                    onClick={(e) => { e.stopPropagation(); setConfirm(t); }}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title="会话操作"
+                    onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === t.task_id ? null : t.task_id); }}
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <MoreHorizontal className="h-3 w-3" />
                   </button>
                 </span>
+                {menuFor === t.task_id && (
+                  <div className="absolute right-2 top-8 z-40 flex w-32 flex-col gap-0.5 rounded-lg border border-border bg-card p-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11.5px] text-foreground hover:bg-muted"
+                      onClick={() => { setRename(t); setRenameValue(t.title || autoTitle(t.task_input)); setMenuFor(null); }}
+                    >
+                      <Pencil className="h-3 w-3 text-muted-foreground" />
+                      重命名
+                    </button>
+                    <button
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11.5px] text-destructive hover:bg-destructive/10"
+                      onClick={() => { setConfirm(t); setMenuFor(null); }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      删除
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -338,13 +370,63 @@ export default function Sidebar(props: {
           <AlertDialogHeader>
             <AlertDialogTitle>删除会话</AlertDialogTitle>
             <AlertDialogDescription>
-              确定删除会话「{confirm ? autoTitle(confirm.task_input) : ""}」？此操作不可恢复。
+              确定删除会话「{confirm ? (confirm.title || autoTitle(confirm.task_input)) : ""}」？此操作不可恢复。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (confirm) onDelete(confirm.task_id); setConfirm(null); }}>
               删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 会话重命名（DSH 对齐） */}
+      <AlertDialog open={!!rename} onOpenChange={(open) => { if (!open) setRename(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>重命名会话</AlertDialogTitle>
+            <AlertDialogDescription>
+              给会话起个新名字（只改显示名，不影响原始输入）。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameValue.trim()) {
+                if (rename) onRename(rename.task_id, renameValue.trim());
+                setRename(null);
+              }
+            }}
+            autoFocus
+            placeholder="会话标题"
+            className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary/50"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (rename && renameValue.trim()) onRename(rename.task_id, renameValue.trim()); setRename(null); }}>
+              保存
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 工作区删除（DSH 对齐：清空其会话，不删磁盘目录） */}
+      <AlertDialog open={!!wsConfirm} onOpenChange={(open) => { if (!open) setWsConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除工作区</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定删除工作区「{wsConfirm ? workspaceLabel(wsConfirm.workspace_id) : ""}」下的全部 {wsConfirm?.task_count ?? 0} 个会话？
+              仅清空该工作区的会话，磁盘目录不会被删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (wsConfirm) onDeleteWorkspace(wsConfirm.workspace_id); setWsConfirm(null); }}>
+              删除工作区
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

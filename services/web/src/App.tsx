@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createTask, deleteTask, getTask, listApprovals, listTasks, listWorkspaces } from "./api";
+import { createTask, deleteTask, deleteWorkspace, getTask, listApprovals, listTasks, listWorkspaces, renameTask } from "./api";
 import ApiView from "./components/ApiView";
 import ApprovalsView from "./components/ApprovalsView";
 import CapabilitiesView from "./components/CapabilitiesView";
@@ -362,6 +362,39 @@ export default function App() {
     }
   };
 
+  // DSH 对齐：会话重命名（只改显示名）→ 刷新列表
+  const handleRename = async (taskId: string, title: string) => {
+    try {
+      await renameTask(taskId, title);
+    } catch {
+      // 失败静默：列表保持旧标题
+    }
+    refreshHistory();
+  };
+
+  // DSH 对齐：删除工作区 = 清空其全部会话（不删磁盘目录）；若删的是当前工作区则回到未选态
+  const handleDeleteWorkspace = async (ws: string) => {
+    try {
+      await deleteWorkspace(ws);
+    } catch {
+      // 失败静默
+    }
+    if (currentWorkspace === ws) {
+      workspaceCache.current[ws] = { items: [], activeTaskId: null, threadId: "", input: "" };
+      setItems([]);
+      setActiveTaskId(null);
+      setRunning(false);
+      setThreadId("");
+      setInput("");
+      setCurrentWorkspace(null);
+      const url = new URL(window.location.href);
+      url.hash = "";
+      window.history.replaceState(null, "", url.toString());
+    }
+    refreshHistory();
+    refreshWorkspaces();
+  };
+
   const newChat = () => {
     // 新建对话 = 当前工作区的空会话（缓存同步清空，避免切走切回恢复旧会话）
     if (currentWorkspace) {
@@ -429,6 +462,8 @@ export default function App() {
           onPick={pickTask}
           onNew={newChat}
           onDelete={handleDelete}
+          onRename={handleRename}
+          onDeleteWorkspace={handleDeleteWorkspace}
           running={running}
           view={view}
           onNavigate={setView}

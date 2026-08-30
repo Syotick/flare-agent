@@ -27,6 +27,12 @@ class TaskCreate(BaseModel):
     workspace_id: str = Field(default="default", min_length=1, max_length=512)
 
 
+class TaskRename(BaseModel):
+    """会话重命名（DSH 对齐）：只改显示名，不改原始输入。"""
+
+    title: str = Field(min_length=1, max_length=200)
+
+
 def build_tasks_router(manager: TaskManager) -> APIRouter:
     router = APIRouter(prefix="/v1", tags=["tasks"])
 
@@ -67,6 +73,16 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
                 status_code=404,
                 detail={"code": "NOT_FOUND", "message": f"任务不存在: {task_id}"},
             )
+
+    @router.patch("/tasks/{task_id}")
+    async def rename_task(task_id: str, body: TaskRename) -> dict[str, Any]:
+        task = await manager.rename(task_id, body.title)
+        if task is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"任务不存在: {task_id}"},
+            )
+        return task.to_dict()
 
     @router.get("/tasks/{task_id}/stream")
     async def stream_task(task_id: str) -> StreamingResponse:

@@ -161,3 +161,63 @@ def test_workspaces_aggregate() -> None:
     assert "default" in by_id  # 始终包含默认工作区
     # 按最近使用倒序（default 无会话时排在 ws-alpha 之后）
     assert ws[0]["workspace_id"] == "ws-alpha"
+
+def test_rename_task_updates_title() -> None:
+    """会话重命名（DSH 对齐）：PATCH 更新 title，原始输入保留。"""
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        created = client.post("/v1/tasks", json={"task_input": "hello"}).json()
+        tid = created["task_id"]
+        resp = client.patch(f"/v1/tasks/{tid}", json={"title": "我的会话"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["title"] == "我的会话"
+        assert body["task_input"] == "hello"  # 原始输入不变
+        # 持久化后可读回
+        got = client.get(f"/v1/tasks/{tid}").json()
+        assert got["title"] == "我的会话"
+
+
+def test_rename_task_missing_404() -> None:
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        resp = client.patch("/v1/tasks/nope", json={"title": "x"})
+    assert resp.status_code == 404
+
+
+def test_delete_workspace_removes_its_sessions_only() -> None:
+    """删除工作区（DSH 对齐：清会话，不删目录）：只删该工作区，其它工作区保留。"""
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        a = client.post("/v1/tasks", json={"task_input": "in-a", "workspace_id": "/ws/a"}).json()
+        b1 = client.post("/v1/tasks", json={"task_input": "in-b-1", "workspace_id": "/ws/b"}).json()
+        b2 = client.post("/v1/tasks", json={"task_input": "in-b-2", "workspace_id": "/ws/b"}).json()
+        _wait_done(client, a["task_id"])
+        _wait_done(client, b1["task_id"])
+        _wait_done(client, b2["task_id"])
+
+        # 删除前各工作区都有会话
+        ws_a = [t for t in client.get("/v1/tasks?workspace=" + "/ws/a").json()]
+        ws_b = [t for t in client.get("/v1/tasks?workspace=" + "/ws/b").json()]
+        assert len(ws_a) == 1 and len(ws_b) == 2
+
+        # 删除工作区 b：只清 b 的会话
+        resp = client.delete("/v1/workspaces/" + "/ws/b")
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == 2
+        assert client.get("/v1/tasks?workspace=" + "/ws/b").json() == []
+        assert len(client.get("/v1/tasks?workspace=" + "/ws/a").json()) == 1
+
+        # 工作区聚合更新：/ws/b 会话清空后不再出现在聚合列表（工作区=会话命名空间）
+        ws_rows = {w["workspace_id"]: w for w in client.get("/v1/workspaces").json()}
+        assert "/ws/b" not in ws_rows
+        assert ws_rows["/ws/a"]["task_count"] == 1
+
+
+def test_delete_workspace_default_is_noop() -> None:
+    app = create_app(task_manager=_manager())
+    with TestClient(app) as client:
+        resp = client.delete("/v1/workspaces/default")
+        assert resp.status_code == 200
+        assert resp.json()["deleted"] == 0
+

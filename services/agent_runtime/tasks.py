@@ -55,6 +55,7 @@ class TaskRecord:
     error: str | None = None
     tenant_id: str = "default"  # M5：多租户隔离边界
     workspace_id: str = "default"  # DSH 对齐：工作区（会话命名空间，Web 先选工作区再新建对话）
+    title: str | None = None  # 会话重命名显示名（None=用 task_input 自动标题）
 
     @property
     def done(self) -> bool:
@@ -73,6 +74,7 @@ class TaskRecord:
             "error": self.error,
             "tenant_id": self.tenant_id,
             "workspace_id": self.workspace_id,
+            "title": self.title,
         }
 
 
@@ -355,6 +357,29 @@ class TaskManager:
         if workspace:
             recs = [t for t in recs if t.workspace_id == workspace]
         return recs[:limit]
+
+    async def rename(self, task_id: str, title: str) -> TaskRecord | None:
+        """会话重命名（DSH 对齐）：写 TaskRecord.title 并持久化；返回更新后任务。"""
+        task = await self.get(task_id)
+        if task is None:
+            return None
+        task.title = (title or "").strip()[:200] or None
+        await self._store.save(task)
+        return task
+
+    async def delete_workspace(self, workspace_id: str) -> int:
+        """删除工作区下全部会话（DSH 对齐：工作区=会话命名空间，不删磁盘目录）。
+
+        返回删除的会话数；聚合列表由 store 权威源重算。
+        """
+        if not workspace_id or workspace_id == "default":
+            return 0
+        recs = await self._store.list(limit=100000)
+        count = 0
+        for t in recs:
+            if t.workspace_id == workspace_id and await self.delete(t.task_id):
+                count += 1
+        return count
 
     async def workspaces(self, limit: int = 200) -> list[dict]:
         """聚合工作区列表（含默认）：id + 会话数 + 最近使用时间。
