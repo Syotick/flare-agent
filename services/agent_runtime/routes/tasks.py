@@ -47,11 +47,11 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
     @router.get("/tasks")
     async def list_tasks(workspace: str | None = None) -> list[dict[str, Any]]:
         """会话列表；?workspace=<id> 时只返回该工作区会话（DSH 对齐：先选工作区再区分对话）。"""
-        return [t.to_dict() for t in manager.recent(workspace=workspace)]
+        return [t.to_dict() for t in await manager.recent(workspace=workspace)]
 
     @router.get("/tasks/{task_id}")
     async def get_task(task_id: str) -> dict[str, Any]:
-        task = manager.get(task_id)
+        task = await manager.get(task_id)
         if task is None:
             raise HTTPException(
                 status_code=404,
@@ -69,7 +69,7 @@ def build_tasks_router(manager: TaskManager) -> APIRouter:
 
     @router.get("/tasks/{task_id}/stream")
     async def stream_task(task_id: str) -> StreamingResponse:
-        task = manager.get(task_id)
+        task = await manager.get(task_id)
         logger.info("SSE stream connect: task=%s exists=%s", task_id, task is not None)
         if task is None:
             raise HTTPException(

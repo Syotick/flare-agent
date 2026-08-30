@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     object_store_access_key: str = "minioadmin"
     object_store_secret_key: str = "minioadmin"
 
-    model_provider: str = "mock"  # mock | openai（OpenAI 兼容；DashScope/DeepSeek 走同协议）| anthropic（Claude 原生）
+    # 供应商：mock | openai | anthropic（Claude 原生）；openai 兼容 DashScope/DeepSeek
+    model_provider: str = "mock"
     model_api_key: str = ""
     model_base_url: str = "http://localhost:9001/v1"  # 本地 vLLM 默认端口
     model_name: str = "gpt-4o-mini"
@@ -36,7 +37,9 @@ class Settings(BaseSettings):
     model_config_path: str = "data/model_config.json"
 
     # M5：任务存储（memory|sqlite|redis）；OTel 导出端点（空=不启用）
-    task_store: str = "memory"
+    # DSH 对齐：本地默认 sqlite 落盘（data/tasks.sqlite3）——会话列表重启可查；
+    # 生产多实例用 redis（FLARE_TASK_STORE=redis）
+    task_store: str = "sqlite"
     otel_endpoint: str = ""
 
     # M6：SLO 目标（错误预算/告警依据；生产用环境变量覆盖，如 FLARE_SLO_AVAILABILITY=0.99）

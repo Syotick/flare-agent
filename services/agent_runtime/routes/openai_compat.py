@@ -89,7 +89,7 @@ async def _wait_done(manager: TaskManager, task_id: str) -> dict[str, Any]:
     """轮询任务到终态（或超时）；返回 task.to_dict()。"""
     deadline = time.monotonic() + WAIT_TIMEOUT
     while time.monotonic() < deadline:
-        task = manager.get(task_id)
+        task = await manager.get(task_id)
         if task is not None and task.done:
             return task.to_dict()
         await asyncio.sleep(POLL_INTERVAL)

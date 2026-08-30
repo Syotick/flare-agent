@@ -52,7 +52,7 @@ def test_chat_completions_non_stream() -> None:
     assert body["usage"]["prompt_tokens"] > 0
 
 
-def test_chat_completions_uses_task_manager() -> None:
+async def test_chat_completions_uses_task_manager() -> None:
     """任务确实走 TaskManager（登记/可查，与 /v1/tasks 同一套）。"""
     manager = _manager()
     with TestClient(create_app(settings=Settings(env="test"), task_manager=manager)) as client:
@@ -61,7 +61,7 @@ def test_chat_completions_uses_task_manager() -> None:
             json={"messages": [{"role": "user", "content": "hi"}]},
         )
         tid = resp.json()["id"].replace("chatcmpl-", "")
-    task = manager.get(tid)
+    task = await manager.get(tid)
     assert task is not None and task.done and task.status == "completed"
 
 

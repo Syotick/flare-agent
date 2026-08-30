@@ -319,19 +319,29 @@ class TaskManager:
             await close()
         await self._store.close()
 
-    def get(self, task_id: str) -> TaskRecord | None:
-        return self._tasks.get(task_id)
+    async def get(self, task_id: str) -> TaskRecord | None:
+        """查询任务：先查进程内缓存（热路径），miss 则回退持久 store（重启后可恢复历史）。"""
+        task = self._tasks.get(task_id)
+        if task is not None:
+            return task
+        return await self._store.get(task_id)
 
     async def delete(self, task_id: str) -> bool:
-        """删除任务（会话管理）。运行中的任务仅从存储移除，后台协程照常收尾。"""
-        removed = self._tasks.pop(task_id, None) is not None
-        if removed:
-            await self._store.delete(task_id)
-        return removed
+        """删除任务（会话管理）。运行中的任务仅从存储移除，后台协程照常收尾。
 
-    def recent(self, limit: int = 200, workspace: str | None = None) -> list[TaskRecord]:
-        """最近任务列表；workspace 非空时只返回该工作区的会话（Web 先选工作区再区分对话）。"""
-        recs = sorted(self._tasks.values(), key=lambda t: t.created_at, reverse=True)
+        直接删缓存 + 持久 store（不依赖缓存命中——重启后从 store 恢复的历史任务
+        同样可删，而不是因缓存 miss 而静默失败）。
+        """
+        self._tasks.pop(task_id, None)
+        return await self._store.delete(task_id)
+
+    async def recent(self, limit: int = 200, workspace: str | None = None) -> list[TaskRecord]:
+        """最近任务列表（从持久 store 读——sqlite/redis 下重启后可恢复历史会话）。
+
+        workspace 非空时只返回该工作区的会话（Web 先选工作区再区分对话）。
+        """
+        recs = await self._store.list(limit)
+        recs.sort(key=lambda t: t.created_at, reverse=True)
         if workspace:
             recs = [t for t in recs if t.workspace_id == workspace]
         return recs[:limit]
