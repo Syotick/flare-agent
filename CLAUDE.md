@@ -128,3 +128,4 @@ git branch --show-current
 - 用户数据（代码快照、RAG 文档、会话）先落 OSS/持久化，内存只做缓存
 - 所有外部依赖评估生产化程度（维护活跃度、许可证、云上托管能力）后再引入
 - 面向百万并发：有状态东西尽量外置（Redis/DB/消息队列），应用层无状态、水平扩展
+| 2026-08-31 | ✅ **Agent 代码工作区 P1（质变第一步）**：工作区=真实目录注入 agent 工具（对标 DSH）——registry.task_view(cwd) 每任务附加 read/write/edit/glob/grep/bash 六工具（workspace_tools.py，闭包绑定 cwd + 每任务独立 observed）；**read 前置策略**（覆盖已存在文件前必须 read；edit 版本 CAS 防盲改）；**越界检测**（write/edit 在 cwd 外拒绝 OUT_OF_BOUNDS）；bash=Git Bash（bash -c 每次全新进程、超时默认 30s/上限 120s、输出 64KB 截断、FLARE_SHELL 可覆盖）；权限 read/write/destructive 分级；**default/非目录 workspace 不注入**（防越权）；graph 集成测试（fake llm 驱动 read 全链路）通过；257 测试全绿。下一步（P2）：前端文件树侧栏 + Docker/bash 沙箱 + 越界审批 UI；或用户真实模型体验读/写/跑工作区 |

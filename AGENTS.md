@@ -29,6 +29,7 @@
 - 技术栈：Python + LangGraph + FastAPI + Milvus（主选）+ 自研 OpenAI 兼容模型网关（可自托管 vLLM/SGLang）
 - 产品形态：本地 Web 优先（预留 CLI/API）
 - 沙箱：微虚拟化强隔离（Kata/Firecracker），本地开发 Docker 降级
+- 2026-08-31：**Agent 代码工作区 P1**——workspace=真实目录经 registry.task_view(cwd) 注入 agent 工具：read/write/edit/glob/grep/bash（对标 DSH）；read 前置 + edit 版本 CAS 防盲改；write/edit 越界拒绝；bash=Git Bash（每次全新进程/超时/输出上限/FLARE_SHELL 覆盖）；权限 read/write/destructive；default 不注入防越权；257 测试全绿
 - 阿里云凭证：后续提供，开发阶段用本地模拟（MinIO 模拟 OSS、本地 Redis/PG/向量库），存储层 Provider 可切换
 - 新增需求：面试题驱动开发——全面覆盖高级 Agent 工程师考点（多路召回/GraphRAG/记忆/安全/高并发等），实践+真理并重
 

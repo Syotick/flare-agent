@@ -65,6 +65,21 @@ class ToolRegistry:
             raise NotFoundError(f"未知工具: {name}")
         return tool
 
+    def task_view(self, cwd: str | None = None) -> ToolRegistry:
+        """任务视图：共享工具 + 附加绑定工作区 cwd 的工具（不修改共享注册表）。
+
+        cwd 为真实目录时附加 read/write/edit/glob/grep/bash（读代码/写代码/跑命令），
+        每任务独立 observed 状态。无 cwd（default 工作区/CLI）退回纯共享工具。
+        """
+        view = ToolRegistry()
+        view._tools.update(self._tools)
+        if cwd:
+            from tools_gateway.workspace_tools import build_workspace_tools
+
+            for tool in build_workspace_tools(cwd):
+                view.register(tool)
+        return view
+
     def list(self) -> list[Tool]:
         return sorted(self._tools.values(), key=lambda t: t.name)
 

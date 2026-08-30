@@ -14,6 +14,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from langgraph.types import Command
@@ -184,13 +185,22 @@ class TaskManager:
                 memory_context = await self._memory.build_context(
                     query=task.task_input, recent=recent
                 )
+            # 工作区绑定：workspace_id 为真实目录时，为该任务构建工作区工具视图
+            # （read/write/edit/glob/grep/bash——读代码/写代码/跑命令，对标 DSH）。
+            # default/非目录 workspace 退回共享工具（echo/sandbox_run 等）。
+            ws_root = None
+            if task.workspace_id and task.workspace_id != "default":
+                ws_path = Path(task.workspace_id)
+                if ws_path.is_dir():
+                    ws_root = str(ws_path.resolve())
+            registry = self._registry.task_view(ws_root)
             # F1.3/F2.4：审批门 + TOFU 作用域（thread=会话线程 / tenant=租户 / off=关闭）
             approval_scope = None
             if self._approval is not None:
                 approval_scope = self._approval.scope_for(task.thread_id, task.tenant_id)
             agent = build_react_agent(
                 self._llm,
-                self._registry,
+                registry,
                 max_steps=task.max_steps,
                 checkpointer=checkpointer,
                 memory_context=memory_context,
