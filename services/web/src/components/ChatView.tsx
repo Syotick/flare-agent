@@ -9,30 +9,6 @@ import ThinkingOrb from "./ThinkingOrb";
 import ToolCallCard from "./ToolCallCard";
 import WelcomePanel from "./WelcomePanel";
 
-// 打字机流式文本（修复：done 时立即全量显示——任务快时 step/result 几乎同时到达，
-// 若 done=true 还停在 shown=0 会渲染出空白气泡，回复永远不显示）
-function StreamText({ text, done }: { text: string; done: boolean }) {
-  const [shown, setShown] = useState(0);
-  // L6：不随 text 增长重置——token 逐段追加时 shown 单调向前追，避免每次 token
-  // 到达都从 0 重打（闪烁/永远显示不全）；新气泡(新 key)天然从 0 开始。
-  useEffect(() => {
-    if (done) {
-      setShown(text.length); // 完成时直接补全，避免停在空白
-      return;
-    }
-    if (shown >= text.length) return;
-    // 放慢到 30ms/2 字符（≈15ms/字符），让"逐字打出"肉眼可见（上游 token 快时尤其需要）
-    const t = window.setTimeout(() => setShown((s) => Math.min(s + 2, text.length)), 30);
-    return () => window.clearTimeout(t);
-  }, [shown, done, text]);
-  return (
-    <span>
-      {text.slice(0, shown)}
-      {!done && <span className="ml-0.5 inline-block h-[1em] w-[2px] animate-pulse bg-primary" />}
-    </span>
-  );
-}
-
 function TimeStamp({ ts }: { ts?: number }) {
   if (!ts) return null;
   return <div className="mt-1 text-[10px] text-muted-foreground/50">{relTime(ts)}</div>;
@@ -58,15 +34,10 @@ function AssistantBubble({ text, done, ts }: { text: string; done: boolean; ts?:
         <FlareLogo size={18} animated={!done} />
       </div>
       <div className="min-w-0 flex-1 space-y-1 pt-0.5">
-        {done ? (
-          <div className="animate-fade-in text-[14.5px] leading-[1.75]">
-            <MarkdownView text={text} />
-          </div>
-        ) : (
-          <div className="whitespace-pre-wrap break-words text-[14.5px] leading-[1.75] text-foreground">
-            <StreamText text={text} done={done} />
-          </div>
-        )}
+        {/* Markdown 全程渲染（流式期间也渲染，结构/代码高亮即时可见）+ 流式光标 */}
+        <div className="text-[14.5px] leading-[1.75]">
+          <MarkdownView text={text} streaming={!done} />
+        </div>
         <TimeStamp ts={ts} />
       </div>
     </div>

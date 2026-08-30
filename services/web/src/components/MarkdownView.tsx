@@ -44,12 +44,13 @@ function extractCodeInfo(node: unknown): { lang: string; text: string } {
   return { lang, text };
 }
 
-export default function MarkdownView({ text }: { text: string }) {
+export default function MarkdownView({ text, streaming = false }: { text: string; streaming?: boolean }) {
   return (
     <div className="markdown-body min-w-0">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
+        // detect: true —— 无语言标签的代码块也自动检测高亮（否则代码块"裸露"无颜色）
+        rehypePlugins={[[rehypeHighlight, { detect: true }]]}
         components={{
           pre({ node, children }) {
             const { lang, text: raw } = extractCodeInfo(node);
@@ -102,6 +103,9 @@ export default function MarkdownView({ text }: { text: string }) {
       >
         {text}
       </ReactMarkdown>
+      {streaming && (
+        <span className="ml-0.5 inline-block h-[1.1em] w-[2px] animate-pulse bg-primary align-middle" />
+      )}
     </div>
   );
 }

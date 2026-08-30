@@ -31,8 +31,7 @@ export default function Sidebar(props: {
   const [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
   const [wsOpen, setWsOpen] = useState(false);
-  const [wsName, setWsName] = useState("");
-  // DSH browse 对齐：打开应用内目录浏览器，选中的服务器真实路径作为工作区
+  // DSH 对齐：添加/选择工作区 = 打开应用内目录浏览器（无"输入名字"，与 DSH 一致）
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const q = query.trim().toLowerCase();
@@ -54,6 +53,17 @@ export default function Sidebar(props: {
     wsList = [...wsList, { workspace_id: currentWorkspace, task_count: 0, last_used_at: 0 }];
   }
 
+  // DSH 对齐：没有任何工作区时，点击工作区按钮直接打开目录选择（跳过空菜单）；
+  // 有工作区则展开下拉（列表 + 添加工作区）。
+  const openWsMenu = () => {
+    const hasWs = workspaces.some((w) => w.workspace_id !== "default") || !!currentWorkspace;
+    if (!hasWs) {
+      setPickerOpen(true);
+      return;
+    }
+    setWsOpen(!wsOpen);
+  };
+
   return (
     <aside
       className="relative flex h-full w-[264px] flex-none flex-col gap-4 overflow-hidden border-r border-border/80 px-3 py-4 backdrop-blur-xl"
@@ -74,9 +84,9 @@ export default function Sidebar(props: {
       {/* DSH 对齐：工作区选择器（先选工作区，会话按工作区区分） */}
       <div className="relative flex-none px-0.5">
         <button
-          onClick={() => setWsOpen(!wsOpen)}
+          onClick={openWsMenu}
           className="flex w-full items-center gap-2 rounded-lg border border-border bg-card/50 px-2.5 py-2 text-left transition-colors hover:border-primary/40"
-          title="选择工作区"
+          title="选择或添加工作区"
         >
           <FolderOpen className="h-3.5 w-3.5 flex-none text-primary" />
           <span
@@ -112,32 +122,15 @@ export default function Sidebar(props: {
                 </button>
               ))}
             </div>
-            <div className="flex flex-col gap-1 border-t border-border p-1.5">
+            <div className="border-t border-border p-1.5">
               <button
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                title="在服务器文件系统里浏览并选择工作区目录"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-primary transition-colors hover:bg-primary/10"
+                title="打开文件系统浏览并选择目录作为工作区"
                 onClick={() => { setPickerOpen(true); setWsOpen(false); }}
               >
-                <FolderOpen className="h-3.5 w-3.5 flex-none text-primary" />
-                打开文件夹作为工作区…
+                <Plus className="h-3.5 w-3.5 flex-none" />
+                添加工作区…
               </button>
-              <div className="flex items-center gap-1.5">
-                <Plus className="h-3 w-3 flex-none text-muted-foreground" />
-                <input
-                  value={wsName}
-                  onChange={(e) => setWsName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && wsName.trim()) {
-                      onSwitchWorkspace(wsName.trim());
-                      setWsName("");
-                      setWsOpen(false);
-                    }
-                  }}
-                  placeholder="或输入自定义名字…"
-                  autoComplete="off"
-                  className="h-7 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
-                />
-              </div>
             </div>
           </div>
         )}

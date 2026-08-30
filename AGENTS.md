@@ -76,3 +76,4 @@
 ## 待决策
 预算/模型供应商（开发先默认 DeepSeek/通义兼容接口 + 多供应商可配）、运维人力。
 - 2026-08-31：**前端美化 P1-P3 全交付**——Markdown 渲染（react-markdown+remark-gfm+rehype-highlight，代码块语言标签/复制按钮）、气泡重构（用户渐变微光/助手 markdown+打字机/入场动画/时间戳）、Composer 自动增高+圆形发送钮、ToolCallCard 过渡+呼吸边框、WelcomePanel 动态问候+上浮卡片、思考态阶段文字轮换、markdown-body+hljs 暖色 token 样式；tsc 全过；下一步=agent 执行侧优化
+- 2026-08-31(2)：**修复+DSh 仿照**——markdown 流式期间即渲染 + detect:true 无语言代码块自动高亮；侧栏工作区=列表+「添加工作区…」（DSH WorkspacePickFlow 仿照），无工作区直接开目录选择，移除输入名字框
