@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Activity, Brain, ChevronDown, Cpu, Database, FolderOpen, MessageSquare, Plus, Puzzle, Search, ShieldCheck, Terminal, Trash2, X,
 } from "lucide-react";
@@ -31,6 +31,19 @@ export default function Sidebar(props: {
   const [confirm, setConfirm] = useState<TaskDetail | null>(null);
   const [wsOpen, setWsOpen] = useState(false);
   const [wsName, setWsName] = useState("");
+  // DSH 对齐：工作区 = 打开文件系统选目录（浏览器仅能取到目录名，作为工作区 id）
+  const dirInputRef = useRef<HTMLInputElement>(null);
+
+  const onDirPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 允许重复选择同一目录
+    if (!file) return;
+    const dirName = file.webkitRelativePath.split("/")[0];
+    if (dirName) {
+      onSwitchWorkspace(dirName);
+      setWsOpen(false);
+    }
+  };
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -106,21 +119,38 @@ export default function Sidebar(props: {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-1.5 border-t border-border p-1.5">
-              <Plus className="h-3 w-3 flex-none text-muted-foreground" />
+            <div className="flex flex-col gap-1 border-t border-border p-1.5">
+              <button
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="打开系统文件夹选择器，所选目录名作为工作区"
+                onClick={() => dirInputRef.current?.click()}
+              >
+                <FolderOpen className="h-3.5 w-3.5 flex-none text-primary" />
+                打开文件夹作为工作区…
+              </button>
+              <div className="flex items-center gap-1.5">
+                <Plus className="h-3 w-3 flex-none text-muted-foreground" />
+                <input
+                  value={wsName}
+                  onChange={(e) => setWsName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && wsName.trim()) {
+                      onSwitchWorkspace(wsName.trim());
+                      setWsName("");
+                      setWsOpen(false);
+                    }
+                  }}
+                  placeholder="或输入自定义名字…"
+                  autoComplete="off"
+                  className="h-7 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+                />
+              </div>
               <input
-                value={wsName}
-                onChange={(e) => setWsName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && wsName.trim()) {
-                    onSwitchWorkspace(wsName.trim());
-                    setWsName("");
-                    setWsOpen(false);
-                  }
-                }}
-                placeholder="新建工作区，回车确认…"
-                autoComplete="off"
-                className="h-7 min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+                ref={dirInputRef}
+                type="file"
+                {...({ webkitdirectory: true } as React.InputHTMLAttributes<HTMLInputElement>)}
+                className="hidden"
+                onChange={onDirPicked}
               />
             </div>
           </div>
