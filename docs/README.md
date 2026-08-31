@@ -66,6 +66,7 @@
 
 | 文档 | 状态 | 说明 |
 | --- | --- | --- |
+| [00-agent-engineering-job-research.md](./learning/00-agent-engineering-job-research.md) | draft | **当前真实调研（2026-08 实查）**：大厂 Agent 开发岗 JD 拆解 + 1798 题面试题库映射 + 项目对照表 + 行动清单 |
 | [01-agent-interview-questions.md](./learning/01-agent-interview-questions.md) | draft | 高级 Agent 工程师面试题库（实践 + 真理），FR-10 验收清单 |
 | [02-rag-ingestion-pipeline.md](./learning/02-rag-ingestion-pipeline.md) | draft | RAG 入库管线与向量检索（实践 + 真理），FR-5 配套 |
 | [03-memory-and-context-engineering.md](./learning/03-memory-and-context-engineering.md) | draft | 分层记忆与上下文工程（实践 + 真理），FR-4 配套 |
