@@ -1,8 +1,25 @@
 # 📚 Flare Agent · 文档中心（总索引 + 管理规范）
 
-> 版本：v1.0 ｜ 日期：2026-08-27 ｜ 状态：approved
+> 版本：v1.1 ｜ 日期：2026-08-31 ｜ 状态：approved
 > 职责：本文档是**唯一文档入口**。先看这里，再进具体分类。
 > 维护：任何文档增删改都要同步更新本文档的索引表。
+
+---
+
+## 🚀 新手上路（有基础的人从这里开始）
+
+> **先读这 6 篇真实教学文档**，再去看规划/演进类文档，避免被过时内容带偏：
+
+| 章节 | 内容 | 状态 |
+| --- | --- | --- |
+| [guides/00-overview.md](guides/00-overview.md) | 是什么、能做什么、和 Claude Code / DSH 的区别 | 真实 |
+| [guides/01-quickstart.md](guides/01-quickstart.md) | 5 分钟跑通：安装 / 启动 / 首个任务 / 接模型 / 建工作区 | 真实 |
+| [guides/02-core-concepts.md](guides/02-core-concepts.md) | 任务 / 线程 / SSE / 工作区 / 工具 / 审批 / 模式 / 模型 | 真实 |
+| [guides/03-architecture.md](guides/03-architecture.md) | 真实架构图 + 模块职责 + 一次任务的完整数据流 | 真实 |
+| [guides/04-developer-guide.md](guides/04-developer-guide.md) | 加工具 / 加 API / 跑测试 / 前端 / CLI / 规范 | 真实 |
+| [guides/05-advanced.md](guides/05-advanced.md) | 模型 / 权限 / RAG / 记忆 / 多 Agent / MCP / 技能 / 运维 | 真实 |
+
+> ⚠️ 下方 product/learning/ 等目录多为**规划 / 演进参考**（draft），描述的能力可能与当前代码实现有差异；**实操一律以 guides/ 与源码为准**。
 
 ---
 
@@ -14,7 +31,7 @@
 | **[engineering/](./engineering/)** | **开发与工程规范** ⭐开发文档 | 开发流程、分支/提交/评审、测试、CI/CD、发布、SRE、安全 | 研发团队 |
 | **[learning/](./learning/)** | 学习与面试 | 进阶教学、面试题库（实践+真理） | 团队学习 |
 | **[adr/](./adr/)** | 架构决策记录 | 关键决策：背景→选项→决策→后果 | 研发团队 |
-| **[guides/](./guides/)** | 操作指南 | 本地开发、部署、运维操作手册 | 使用者/运维 |
+| **[guides/](./guides/)** | **教学指南** ⭐入门首选 | 真实可跑的教学文档（概览/快速开始/概念/架构/开发/进阶） | 新人与开发者 |
 | **[templates/](./templates/)** | 文档模板 | ADR、需求、PR 等模板 | 写文档的人 |
 
 > 一句话区分：**product = 这个产品是什么/为什么/怎么设计**；**engineering = 团队怎么开发与上线**。
@@ -43,7 +60,10 @@
 | [05-code-review-r3.md](./engineering/05-code-review-r3.md) | approved | Round 3 审查记录（Web 前端：L1-L4 + 问题2/3 处置 + 复查清单） |
 | [07-code-review-r6.md](./engineering/07-code-review-r6.md) | approved | Round 6 审查记录（MCP 客户端：M1-M8 集成断点修复 + flaky 修复 + 文档 v1.1） |
 
-### learning/ 学习与面试
+### learning/ 学习与面试（演进 / 规划参考 · 部分与当前实现有差异）
+
+> 入门与实操请以 **[guides/](./guides/)** 教学文档为准；以下为设计演进与面试参考。
+
 | 文档 | 状态 | 说明 |
 | --- | --- | --- |
 | [01-agent-interview-questions.md](./learning/01-agent-interview-questions.md) | draft | 高级 Agent 工程师面试题库（实践 + 真理），FR-10 验收清单 |

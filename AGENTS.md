@@ -80,3 +80,4 @@
 - 2026-08-31(3)：**会话/工作区管理对齐 DSH**——会话 hover 菜单（重命名/删除，直接删不归档），PATCH rename API，工作区 hover 删除（清其会话不删目录），DELETE /v1/workspaces/{id:path}；261 测试绿
 - 2026-08-31(4)：**权限模式+模型选择（DSH 对齐）**——Composer 顶部 chip 下拉（只读/批准/无限制 + 模型），后端 read-only 只注入只读工具、unrestricted 免审批、per-task model resolver；265 测试绿
 - 2026-08-31(5)：**布局自适应修复**——markdown 长文本 overflow-wrap 换行、代码块/表格 max-w-full、DirectoryPicker max-h-92vh、Composer 下拉向上展开、状态/审批描述 break-words
+- 2026-08-31(6)：**教学文档重建**——README 真实化（高 star 风格），新建 docs/guides/00-05 教学系列（真实可跑），docs/README 加新手上路入口，learning 标注规划参考
